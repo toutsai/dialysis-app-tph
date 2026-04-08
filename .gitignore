@@ -137,8 +137,7 @@ dist
 
 
 data/
-.claude/
+.claude/settings.local.json
 .env
-CLAUDE.md
 data/dialysis.db
 *.db
