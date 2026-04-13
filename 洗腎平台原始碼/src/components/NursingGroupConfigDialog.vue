@@ -391,7 +391,7 @@ const sourceMonth = ref(null) // 配置來源月份
 // 夜班組別限制相關狀態
 const newRestrictionNurseId = ref('')
 const newRestrictionGroups = ref([])
-const nightShiftGroupOptions = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
+const nightShiftGroupOptions = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
 
 // 計算早班可用組別（根據組數）
 const dayGroups135 = computed(() => {

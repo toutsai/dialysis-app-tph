@@ -3,11 +3,11 @@
 
 import { nursingApi } from '@/services/localApiClient'
 
-// 早班組別字母（B-J，A組保留給74/L）
-const DAY_SHIFT_LETTERS = ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+// 早班組別字母（B-K，A組保留給74/L）
+const DAY_SHIFT_LETTERS = ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
 
-// 晚班組別字母（A-I）
-const NIGHT_SHIFT_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
+// 晚班組別字母（A-J）
+const NIGHT_SHIFT_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
 
 /**
  * 根據組數產生早班可用組別（從B開始）

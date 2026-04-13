@@ -1043,33 +1043,65 @@ router.put('/daily-logs/:date', ...isEditor, async (req, res) => {
 
     const db = getDatabase()
 
-    db.prepare(
-      `
-      INSERT INTO daily_logs (id, date, patient_movements, announcements, notes, vascular_access_log, stats, leader, other_notes, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
-      ON CONFLICT(date) DO UPDATE SET
-        patient_movements = excluded.patient_movements,
-        vascular_access_log = excluded.vascular_access_log,
-        announcements = excluded.announcements,
-        notes = excluded.notes,
-        stats = excluded.stats,
-        leader = excluded.leader,
-        other_notes = excluded.other_notes,
-        updated_at = datetime('now', 'localtime')
-    `,
-    ).run(
-      date,
-      date,
-      JSON.stringify(patientMovements || []),
-      JSON.stringify(announcements || []),
-      safeNotes,
-      JSON.stringify(vascularAccessLog || []),
-      JSON.stringify(stats || {}),
-      JSON.stringify(leader || {}),
-      safeOtherNotes,
-    )
+    // 先查詢是否已有該日紀錄
+    const existing = db.prepare('SELECT * FROM daily_logs WHERE date = ?').get(date)
 
-    db.close()
+    if (existing) {
+      // 已有紀錄：只更新前端有傳送的欄位，未傳送的保留原值
+      const setClauses = []
+      const params = []
+
+      if (patientMovements !== undefined) {
+        setClauses.push('patient_movements = ?')
+        params.push(JSON.stringify(patientMovements))
+      }
+      if (announcements !== undefined) {
+        setClauses.push('announcements = ?')
+        params.push(JSON.stringify(announcements))
+      }
+      if (notes !== undefined) {
+        setClauses.push('notes = ?')
+        params.push(safeNotes)
+      }
+      if (vascularAccessLog !== undefined) {
+        setClauses.push('vascular_access_log = ?')
+        params.push(JSON.stringify(vascularAccessLog))
+      }
+      if (stats !== undefined) {
+        setClauses.push('stats = ?')
+        params.push(JSON.stringify(stats))
+      }
+      if (leader !== undefined) {
+        setClauses.push('leader = ?')
+        params.push(JSON.stringify(leader))
+      }
+      if (otherNotes !== undefined) {
+        setClauses.push('other_notes = ?')
+        params.push(safeOtherNotes)
+      }
+
+      if (setClauses.length > 0) {
+        setClauses.push("updated_at = datetime('now', 'localtime')")
+        params.push(date)
+        db.prepare(`UPDATE daily_logs SET ${setClauses.join(', ')} WHERE date = ?`).run(...params)
+      }
+    } else {
+      // 新紀錄：INSERT，未傳送的欄位使用預設空值
+      db.prepare(
+        `INSERT INTO daily_logs (id, date, patient_movements, announcements, notes, vascular_access_log, stats, leader, other_notes, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
+      ).run(
+        date,
+        date,
+        JSON.stringify(patientMovements || []),
+        JSON.stringify(announcements || []),
+        safeNotes,
+        JSON.stringify(vascularAccessLog || []),
+        JSON.stringify(stats || {}),
+        JSON.stringify(leader || {}),
+        safeOtherNotes,
+      )
+    }
 
     // 同步到 Kidit 日誌本
     try {

@@ -149,6 +149,14 @@ export const authApi = {
   },
 
   /**
+   * 取得精簡使用者目錄 (所有登入使用者可用)
+   * 只回傳 id, name, title, role
+   */
+  async getUserDirectory() {
+    return apiRequest<any[]>('/auth/users/directory')
+  },
+
+  /**
    * 建立使用者 (管理員)
    */
   async createUser(userData: {

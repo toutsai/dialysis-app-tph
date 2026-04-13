@@ -454,6 +454,33 @@ router.post('/change-password', authenticate, async (req, res) => {
 })
 
 /**
+ * GET /api/auth/users/directory
+ * 取得精簡使用者目錄 (所有登入使用者可用)
+ * 只回傳 id, name, title, role — 用於護理分組、排程顯示等
+ */
+router.get('/users/directory', authenticate, (req, res) => {
+  try {
+    const db = getDatabase()
+    const users = db
+      .prepare(`SELECT id, name, title, role FROM users WHERE is_active = 1 ORDER BY name`)
+      .all()
+
+    res.json(
+      users.map((u) => ({
+        id: u.id,
+        uid: u.id,
+        name: u.name,
+        title: u.title,
+        role: u.role,
+      })),
+    )
+  } catch (error) {
+    console.error('取得使用者目錄錯誤:', error)
+    res.status(500).json({ error: true, message: '取得使用者目錄失敗' })
+  }
+})
+
+/**
  * GET /api/auth/users
  * 取得所有使用者列表 (僅管理員)
  */

@@ -11,7 +11,7 @@ const CACHE_TTL = 10 * 60 * 1000 // 10 minutes
 let inflightPromise = null
 
 async function fetchUsersFromBackend() {
-  const users = await authApi.getUsers()
+  const users = await authApi.getUserDirectory()
   const normalizedUsers = users.map((user) => ({
     uid: user.uid || user.id,
     ...user,

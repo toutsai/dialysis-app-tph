@@ -1950,14 +1950,11 @@ async function saveJustMovements() {
     if (!dailyLog.id) {
       dailyLog.id = docId
     }
-    hasUnsavedChanges.value = false
+    // 注意：不設定 hasUnsavedChanges = false，因為其他區段（營運統計、血管通路、其他事項）
+    // 可能仍有未儲存的變更。只有 saveLog() 全量儲存後才應該清除此標記。
 
-    // 更新快取
-    dailyLogCache.set(selectedDate.value, {
-      dailyLog: cloneData(dailyLog),
-      schedule: cloneData(currentSchedule.value),
-      handoverNotes: handoverNotes.value,
-    })
+    // 清除快取，確保下次載入從 DB 取得最新完整資料，避免快取中的部分資料覆蓋 DB 已存的欄位
+    dailyLogCache.delete(selectedDate.value)
 
     showAlert('操作成功', '病人動態已更新！')
   } catch (error) {

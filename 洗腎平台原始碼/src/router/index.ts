@@ -42,13 +42,13 @@ const routes = [
         path: 'physician-schedule',
         component: PhysicianScheduleView,
         redirect: '/physician-schedule/rounding',
-        meta: { title: '醫師排班', roles: ['admin', 'contributor', 'viewer'] },
+        meta: { title: '醫師排班' },
         children: [
           {
             path: 'rounding',
             name: 'PhysicianRoundingSchedule',
             component: PhysicianScheduleView,
-            meta: { title: '查房班表', roles: ['admin', 'contributor', 'viewer'] },
+            meta: { title: '查房班表' },
           },
         ],
       },

@@ -21,10 +21,6 @@ export function useTeamAssigner() {
 
     const assignedPatientIds = new Set()
     const addPatient = (team, patient) => {
-      if (team && team.includes('K')) {
-        console.warn(`⚠️ 偵測到K組分配嘗試，已阻止: ${patient?.id} -> ${team}`)
-        return false
-      }
       if (patient && assignments[team] && !assignedPatientIds.has(patient.id)) {
         assignments[team].push(patient)
         assignedPatientIds.add(patient.id)
@@ -80,7 +76,7 @@ export function useTeamAssigner() {
     }
 
     // --- 步驟三：為常規組計算最終目標人數並填充 ---
-    const participatingTeams = regularTeams.filter((team) => !team.includes('K'))
+    const participatingTeams = regularTeams
     const remainingPatientsForRegularTeams = allPatients.filter(
       (p) => !assignedPatientIds.has(p.id),
     )

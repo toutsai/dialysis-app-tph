@@ -1533,12 +1533,11 @@ async function saveDataToCloud() {
 async function loadDailyStaffInfo(date) {
   try {
     const dateStr = formatDate(date).substring(0, 7)
-    const [monthScheduleDoc, allUsers] = await Promise.all([
+    const [monthScheduleDoc, physicians] = await Promise.all([
       systemApi.fetchPhysicianSchedule(dateStr),
-      authApi.getUsers(),
+      systemApi.fetchPhysicians(),
     ])
-    // 過濾出醫師和專科護理師
-    const physicians = allUsers.filter((u) => u.title === '主治醫師' || u.title === '專科護理師')
+    // physicians API 回傳的已是醫師列表，直接建立 ID → 物件對照表
     const userMap = new Map(physicians.map((u) => [u.id, u]))
     const dialysisPhysiciansData = { early: null, noon: null, late: null }
     const consultPhysiciansData = { morning: null, afternoon: null, night: null }

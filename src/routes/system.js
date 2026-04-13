@@ -1507,7 +1507,7 @@ router.get('/physician-schedules/:date', authenticate, (req, res) => {
  * PUT /api/system/physician-schedules/:date
  * 更新特定日期的醫師班表
  */
-router.put('/physician-schedules/:date', ...isEditor, async (req, res) => {
+router.put('/physician-schedules/:date', ...isContributor, async (req, res) => {
   try {
     const { date } = req.params
     const scheduleData = req.body

@@ -160,12 +160,8 @@
               </RouterLink>
             </li>
 
-            <!-- 4. [醫師班表] Admin, Contributor (Doc), Viewer -->
-            <li
-              v-if="
-                isAdmin || currentUser?.role === 'contributor' || currentUser?.role === 'viewer'
-              "
-            >
+            <!-- 4. [醫師班表] 所有登入使用者可見 -->
+            <li>
               <RouterLink to="/physician-schedule" class="nav-link">
                 <div class="nav-item-content">
                   <span class="nav-title">醫師班表</span>
