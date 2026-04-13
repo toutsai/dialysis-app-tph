@@ -202,9 +202,55 @@ dist/                          # Vue 3 + Vuetify 前端預建置產出
 - **Electron**: `npm run electron:dev` / `npm run dist` — Windows .exe 離線桌面版
 - **生產**: 建置 `dist/` 複製到後端，由 Express 靜態 serve
 
+## Angular 前端遷移計畫
+
+醫院決定從 Vue 改用 Angular 前端。相關專案：
+
+- `dialysis-app-angular` — Angular 19 + Firebase 原始雲端版
+- `dialysis-app-angular-standalone` — Angular 19 + 自帶 Express/SQLite（已從 Firebase 遷移 95%）
+- `dialysis-app-tph` (本 repo) — 醫院正式後端 (PM2 部署)
+
+### 遷移策略
+
+**目標**: Angular standalone 前端 → 對接 TPH 後端（不使用 angular-standalone 自帶的 server/）
+
+### API 對接狀態
+
+**已匹配 (~60%)**：認證、病人 CRUD、排程 CRUD、備忘錄、護理職責/分組/工作日誌、任務/通知、庫存基礎、醫師班表、藥劑注射查詢、醫囑歷史、病情記錄、檢驗報告
+
+**需補齊的 TPH 後端 endpoint (~20 個)**：
+- `POST /api/auth/refresh-token` — Token 刷新 (高優先)
+- `GET /api/patients/with-rules` — 病人 + 排程規則合併 (高優先)
+- `GET /api/patients/history`, `POST /api/patients/history` — 病人異動歷史
+- `POST /api/orders/history/batch` — 批量查詢醫囑歷史
+- `GET/POST /api/orders/medications` — 藥囑管理
+- `GET /api/orders/medication-drafts` — 藥囑草稿
+- `POST /api/orders/lab-reports/upload` — 上傳檢驗報告
+- `GET/PUT /api/orders/lab-alert-analyses` — 檢驗警示分析
+- `GET /api/orders/bed-settings`, `/machine-bicarbonate-config` — 設備設定
+- `POST /api/schedules/sync/initialize`, `/admin/force-resync` — 排程同步觸發
+- `GET /api/schedules/expired/:date`, `/archived` — 歸檔排程
+- `GET/PUT /api/system/auto-assign-config/current` — 自動分配設定
+- `GET/PATCH /api/system/kidit-logbook` — KiDit 日誌
+- `GET /api/system/scheduled-updates` — 預約變更
+- `PATCH /api/system/notifications/:id/read` — 標記已讀
+- `GET/PUT /api/system/config/:key` — 系統設定（跑馬燈等）
+- `POST /api/nursing/schedules/upload` — 護理班表 Excel 上傳
+- `POST /api/patients/upload-image` — 病人照片上傳
+- 庫存進階功能（進貨/月計算/週資料/耗材上傳）
+
+**HTTP 方法不匹配**：Angular 用 PATCH 更新排程/護理分配/總表，TPH 用 PUT → 需前端改用 PUT 或後端加 PATCH 路由
+
+### Angular standalone 已知問題
+- 自帶 server/ 後端與 TPH 完全不同步（全部檔案 DIFF），不應使用
+- 兩套 API 客戶端並存（localApiClient.ts fetch + ApiService HttpClient）
+- environment.ts 仍有 Firebase 憑證（未使用但應清除）
+- legacy firebase.service.ts 仍存在（只是空殼）
+
 ## 注意事項
 
-- 前端原始碼在 `洗腎平台原始碼/` 目錄，`dist/` 是預建置產出
+- 前端原始碼在 `洗腎平台原始碼/` 目錄（Vue），`dist/` 是預建置產出
+- Angular 前端原始碼在 `../dialysis-app-angular-standalone/client/`
 - `backup.js` 被 scheduler.js 和 system.js import，修改時保持 import 不變
 - Windows 環境路徑使用反斜線 (`D:\\dialysis-app\\`)
 - PM2 設定在 `ecosystem.config.cjs` (CommonJS，因為 PM2 不支援 ESM config)
