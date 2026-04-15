@@ -2115,6 +2115,7 @@ function showShiftRecordsSummary(shiftCode) {
         patientInfoMap[slot.patientId] = {
           bedNum,
           medicalRecordNumber: patient?.medicalRecordNumber || '',
+          name: patient?.name || '',
         }
       }
     }
