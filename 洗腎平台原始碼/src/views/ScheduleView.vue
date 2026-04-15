@@ -2014,10 +2014,10 @@ async function executeAutoAssignment() {
   const allNoonPatients = getRichPatientList(SHIFT_CODES.NOON)
   const allLatePatients = getRichPatientList(SHIFT_CODES.LATE)
   const earlyMain = mainArea(allEarlyPatients)
-  const useEarlyTeamA = earlyMain.length > 36
+  const useEarlyTeamA = earlyMain.length > 40
   const earlyTeamsToUse = baseTeams.filter((t) => t !== 'L' && t !== '外圍').map((t) => `早${t}`)
   const earlyRegularTeams = baseTeams
-    .filter((t) => !['A', 'K', 'L', '外圍'].includes(t))
+    .filter((t) => !['A', 'L', '外圍'].includes(t))
     .map((t) => `早${t}`)
   const earlyRules = {
     priorityTeams: {
@@ -2033,7 +2033,7 @@ async function executeAutoAssignment() {
   const earlyAssignments = distributePatients(sort(earlyMain), earlyTeamsToUse, earlyRules)
   earlyAssignments['早外圍'] = peripheral(allEarlyPatients)
   const noonMain = mainArea(allNoonPatients)
-  const useNoonTeamA = noonMain.length > 36
+  const useNoonTeamA = noonMain.length > 40
   const noonOnRules = {
     ...earlyRules,
     mainDistribution: {
