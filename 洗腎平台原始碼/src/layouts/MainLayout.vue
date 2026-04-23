@@ -12,6 +12,20 @@
         <h3 class="section-title nav-section-label">個人常用</h3>
         <ul class="sidebar-nav">
           <li>
+            <RouterLink to="/schedule" class="nav-link">
+              <div class="nav-item-content">
+                <span class="nav-title">每日排程</span>
+              </div>
+            </RouterLink>
+          </li>
+          <li>
+            <RouterLink to="/stats" class="nav-link">
+              <div class="nav-item-content">
+                <span class="nav-title">護理分組</span>
+              </div>
+            </RouterLink>
+          </li>
+          <li v-if="isEditor">
             <RouterLink :to="{ name: 'MyPatients' }" class="nav-link">
               <div class="nav-item-content">
                 <span class="nav-title">我的病人列表</span>
@@ -31,76 +45,60 @@
         </ul>
 
         <!-- 組長專用 -->
-        <template v-if="isAdmin || isEditor">
-          <h3 class="section-title nav-section-label">組長專用</h3>
-          <ul class="sidebar-nav">
-            <li>
-              <RouterLink to="/schedule" class="nav-link">
-                <div class="nav-item-content">
-                  <span class="nav-title">每日排程</span>
-                </div>
-              </RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/stats" class="nav-link">
-                <div class="nav-item-content">
-                  <span class="nav-title">護理分組</span>
-                </div>
-              </RouterLink>
-            </li>
-            <li class="desktop-only-nav-item">
-              <RouterLink to="/weekly" class="nav-link">
-                <div class="nav-item-content">
-                  <span class="nav-title">周排班</span>
-                </div>
-              </RouterLink>
-            </li>
-            <li class="desktop-only-nav-item">
-              <RouterLink to="/base-schedule" class="nav-link">
-                <div class="nav-item-content">
-                  <span class="nav-title">床位總表</span>
-                </div>
-              </RouterLink>
-            </li>
-            <li v-if="isAdmin || isEditor || isContributor">
-              <RouterLink to="/patients" class="nav-link">
-                <div class="nav-item-content">
-                  <span class="nav-title">病人清單</span>
-                </div>
-              </RouterLink>
-            </li>
-            <li class="desktop-only-nav-item">
-              <RouterLink to="/exception-manager" class="nav-link">
-                <div class="nav-item-content">
-                  <span class="nav-title">調班換床</span>
-                  <span class="nav-hint">(單次/區間)</span>
-                </div>
-                <span
-                  v-if="conflictCount > 0"
-                  class="alert-badge"
-                  :title="`有 ${conflictCount} 個衝突待解決`"
-                >
-                  <i class="fas fa-exclamation-triangle"></i>
-                </span>
-              </RouterLink>
-            </li>
-            <li class="desktop-only-nav-item">
-              <RouterLink to="/update-scheduler" class="nav-link">
-                <div class="nav-item-content">
-                  <span class="nav-title">預約變更</span>
-                  <span class="nav-hint">(長期)</span>
-                </div>
-              </RouterLink>
-            </li>
-            <li v-if="isAdmin || currentUser?.role === 'editor' || currentUser?.role === 'viewer'">
-              <RouterLink to="/daily-log" class="nav-link">
-                <div class="nav-item-content">
-                  <span class="nav-title">工作日誌</span>
-                </div>
-              </RouterLink>
-            </li>
-          </ul>
-        </template>
+        <h3 class="section-title nav-section-label">組長專用</h3>
+        <ul class="sidebar-nav">
+          <li class="desktop-only-nav-item">
+            <RouterLink to="/weekly" class="nav-link">
+              <div class="nav-item-content">
+                <span class="nav-title">週排班</span>
+              </div>
+            </RouterLink>
+          </li>
+          <li class="desktop-only-nav-item">
+            <RouterLink to="/base-schedule" class="nav-link">
+              <div class="nav-item-content">
+                <span class="nav-title">床位總表</span>
+              </div>
+            </RouterLink>
+          </li>
+          <li>
+            <RouterLink to="/patients" class="nav-link">
+              <div class="nav-item-content">
+                <span class="nav-title">病人清單</span>
+              </div>
+            </RouterLink>
+          </li>
+          <li v-if="isEditor" class="desktop-only-nav-item">
+            <RouterLink to="/exception-manager" class="nav-link">
+              <div class="nav-item-content">
+                <span class="nav-title">調班換床</span>
+                <span class="nav-hint">(單次/區間)</span>
+              </div>
+              <span
+                v-if="conflictCount > 0"
+                class="alert-badge"
+                :title="`有 ${conflictCount} 個衝突待解決`"
+              >
+                <i class="fas fa-exclamation-triangle"></i>
+              </span>
+            </RouterLink>
+          </li>
+          <li v-if="isEditor" class="desktop-only-nav-item">
+            <RouterLink to="/update-scheduler" class="nav-link">
+              <div class="nav-item-content">
+                <span class="nav-title">預約變更</span>
+                <span class="nav-hint">(長期)</span>
+              </div>
+            </RouterLink>
+          </li>
+          <li>
+            <RouterLink to="/daily-log" class="nav-link">
+              <div class="nav-item-content">
+                <span class="nav-title">工作日誌</span>
+              </div>
+            </RouterLink>
+          </li>
+        </ul>
       </div>
 
       <!-- 通知區域 -->
@@ -140,8 +138,8 @@
           </h3>
 
           <ul v-if="!isManagementSectionCollapsed" class="sidebar-nav">
-            <!-- 1. [護理班表與職責] Admin, Editor (Nurse) -->
-            <li v-if="isAdmin || currentUser?.role === 'editor'">
+            <!-- 1. [護理班表與職責] admin 編輯、editor 檢視 -->
+            <li v-if="isEditor">
               <RouterLink to="/nursing-schedule" class="nav-link">
                 <div class="nav-item-content">
                   <span class="nav-title">護理班表與職責</span>
@@ -149,8 +147,8 @@
               </RouterLink>
             </li>
 
-            <!-- 2. [KiDit 申報] Admin, Editor (Nurse) -->
-            <li v-if="isAdmin || currentUser?.role === 'editor'">
+            <!-- 2. [KiDit 申報] admin, editor -->
+            <li v-if="isEditor">
               <RouterLink to="/kidit-report" class="nav-link">
                 <div class="nav-item-content">
                   <span class="nav-title">KiDit 申報</span>
@@ -158,7 +156,7 @@
               </RouterLink>
             </li>
 
-            <!-- 3. [醫師班表] 所有登入使用者可見 -->
+            <!-- 3. [醫師班表] 所有角色可見 -->
             <li>
               <RouterLink to="/physician-schedule" class="nav-link">
                 <div class="nav-item-content">
@@ -167,8 +165,8 @@
               </RouterLink>
             </li>
 
-            <!-- 4. [檢驗報告] Admin, Contributor (Doc) -->
-            <li v-if="isAdmin || currentUser?.role === 'contributor'">
+            <!-- 4. [檢驗報告] admin, editor, contributor -->
+            <li v-if="isContributor">
               <RouterLink to="/lab-reports" class="nav-link">
                 <div class="nav-item-content">
                   <span class="nav-title">檢驗報告</span>
@@ -176,7 +174,7 @@
               </RouterLink>
             </li>
 
-            <!-- 5. [藥囑管理] Admin, Contributor (Doc) -->
+            <!-- 5. [藥囑管理] admin, contributor -->
             <li v-if="isAdmin || currentUser?.role === 'contributor'">
               <RouterLink to="/orders" class="nav-link">
                 <div class="nav-item-content">
@@ -185,8 +183,8 @@
               </RouterLink>
             </li>
 
-            <!-- 6. [庫存管理] Admin, Viewer -->
-            <li v-if="isAdmin || currentUser?.role === 'viewer'">
+            <!-- 6. [庫存管理] admin, viewer -->
+            <li v-if="isAdmin || isViewer">
               <RouterLink to="/inventory" class="nav-link">
                 <div class="nav-item-content">
                   <span class="nav-title">庫存管理</span>
@@ -194,24 +192,20 @@
               </RouterLink>
             </li>
 
-            <!-- 7. [使用者管理] Admin Only -->
-            <li v-if="isAdmin">
-              <RouterLink to="/user-management" class="nav-link">
+            <!-- 7. [統計報表] 所有角色可見 -->
+            <li>
+              <RouterLink to="/reporting" class="nav-link">
                 <div class="nav-item-content">
-                  <span class="nav-title">使用者管理</span>
+                  <span class="nav-title">統計報表</span>
                 </div>
               </RouterLink>
             </li>
 
-            <!-- 8. [統計報表] Admin, Editor, Contributor -->
-            <li
-              v-if="
-                isAdmin || currentUser?.role === 'editor' || currentUser?.role === 'contributor'
-              "
-            >
-              <RouterLink to="/reporting" class="nav-link">
+            <!-- 8. [使用者管理] admin only -->
+            <li v-if="isAdmin">
+              <RouterLink to="/user-management" class="nav-link">
                 <div class="nav-item-content">
-                  <span class="nav-title">統計報表</span>
+                  <span class="nav-title">使用者管理</span>
                 </div>
               </RouterLink>
             </li>
