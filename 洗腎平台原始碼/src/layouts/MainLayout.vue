@@ -31,7 +31,7 @@
         </ul>
 
         <!-- 組長專用 -->
-        <template v-if="isAdmin || isEditor">
+        <template v-if="isAdmin || isEditor || isContributor">
           <h3 class="section-title nav-section-label">組長專用</h3>
           <ul class="sidebar-nav">
             <li>
@@ -69,7 +69,7 @@
                 </div>
               </RouterLink>
             </li>
-            <li class="desktop-only-nav-item">
+            <li v-if="isAdmin || isEditor" class="desktop-only-nav-item">
               <RouterLink to="/exception-manager" class="nav-link">
                 <div class="nav-item-content">
                   <span class="nav-title">調班換床</span>
@@ -84,7 +84,7 @@
                 </span>
               </RouterLink>
             </li>
-            <li class="desktop-only-nav-item">
+            <li v-if="isAdmin || isEditor" class="desktop-only-nav-item">
               <RouterLink to="/update-scheduler" class="nav-link">
                 <div class="nav-item-content">
                   <span class="nav-title">預約變更</span>
