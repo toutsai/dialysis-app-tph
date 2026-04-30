@@ -40,6 +40,7 @@ const resourceApiMap: Record<string, any> = {
       }
       return schedulesApi.fetchAll()
     },
+    fetchById: (date: string) => schedulesApi.fetchByDate(date),
     fetchByDate: (date: string) => schedulesApi.fetchByDate(date),
     updateByDate: (date: string, schedule: any) => schedulesApi.updateByDate(date, schedule),
   },
