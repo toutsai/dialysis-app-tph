@@ -783,11 +783,13 @@ export const ordersApi = {
   async fetchInjectionOrders(params?: {
     patientId?: string
     uploadMonth?: string
+    effectiveMonth?: string
     orderType?: string
   }) {
     const query = new URLSearchParams()
     if (params?.patientId) query.set('patientId', params.patientId)
     if (params?.uploadMonth) query.set('uploadMonth', params.uploadMonth)
+    if (params?.effectiveMonth) query.set('effectiveMonth', params.effectiveMonth)
     if (params?.orderType) query.set('orderType', params.orderType)
     const queryStr = query.toString()
     return apiRequest<any[]>(`/orders/injection-orders${queryStr ? `?${queryStr}` : ''}`)
