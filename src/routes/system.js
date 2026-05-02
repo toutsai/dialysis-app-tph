@@ -1466,6 +1466,31 @@ router.post('/physicians', ...isAdmin, async (req, res) => {
 // ========================================
 
 /**
+ * GET /api/system/physician-schedules
+ * 取得所有醫師班表（給排班統計年度累計用）
+ */
+router.get('/physician-schedules', authenticate, (req, res) => {
+  try {
+    const db = getDatabase()
+    const rows = db
+      .prepare(`SELECT * FROM physician_schedules ORDER BY id`)
+      .all()
+
+    res.json(
+      rows.map((row) => ({
+        id: row.id,
+        scheduleData: JSON.parse(row.schedule_data || '{}'),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      })),
+    )
+  } catch (error) {
+    console.error('取得所有醫師班表錯誤:', error)
+    res.status(500).json({ error: true, message: '取得醫師班表清單失敗' })
+  }
+})
+
+/**
  * GET /api/system/physician-schedules/:date
  * 取得特定日期的醫師班表
  */

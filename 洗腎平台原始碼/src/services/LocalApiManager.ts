@@ -171,9 +171,13 @@ const resourceApiMap: Record<string, any> = {
   },
   physician_schedules: {
     fetchAll: async () => {
-      // 醫師班表沒有 fetchAll，返回空陣列
-      console.log('[LocalApiManager] physician_schedules.fetchAll: 返回空陣列')
-      return []
+      // 取得所有班表並展開 scheduleData 到頂層（與 fetchById 行為一致）
+      const rows = await systemApi.fetchAllPhysicianSchedules()
+      if (!Array.isArray(rows)) return []
+      return rows.map((row: any) => {
+        const { scheduleData, ...rest } = row
+        return { ...rest, ...(scheduleData || {}) }
+      })
     },
     fetchById: async (id: string) => {
       // 取得班表並展開 scheduleData 到頂層

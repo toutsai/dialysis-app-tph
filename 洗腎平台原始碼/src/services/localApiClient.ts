@@ -1477,6 +1477,20 @@ export const systemApi = {
   },
 
   /**
+   * 取得所有醫師班表（供年度累計統計使用）
+   */
+  async fetchAllPhysicianSchedules() {
+    return apiRequest<
+      Array<{
+        id: string
+        scheduleData: any
+        createdAt: string | null
+        updatedAt: string | null
+      }>
+    >('/system/physician-schedules')
+  },
+
+  /**
    * 更新醫師班表
    */
   async updatePhysicianSchedule(date: string, scheduleData: any) {
