@@ -1028,7 +1028,9 @@ const { allPatients, patientMap, hasFetched } = storeToRefs(patientStore)
 const isLoading = ref(false)
 const selectedDate = ref(formatDate(new Date()))
 const hasUnsavedChanges = ref(false)
-const isPageLocked = computed(() => !canEditSchedules.value)
+// 過去日期一律唯讀（即使 admin 也不能改），與後端 PUT /daily-logs/:date 的歸檔保護一致
+const isPastDate = computed(() => selectedDate.value < formatDate(new Date()))
+const isPageLocked = computed(() => !canEditSchedules.value || isPastDate.value)
 const currentSchedule = ref({})
 const dailyLog = reactive(initialLogState())
 
@@ -1085,6 +1087,7 @@ const weekdayDisplay = computed(() => {
 })
 
 const statusText = computed(() => {
+  if (isPastDate.value) return '歷史紀錄（唯讀）'
   if (hasUnsavedChanges.value) return '有未儲存的變更'
   const isSigned = Object.values(dailyLog.leader).some((l) => l && l.userId)
   return isSigned ? '變更已儲存' : '尚未簽核'
@@ -1404,6 +1407,7 @@ async function loadDailyLog(dateStr) {
 async function saveLog(options = {}) {
   const { successMessage = '日誌已儲存！', showSuccessAlert = true } = options
   if (isLoading.value) return
+  if (isPageLocked.value) return
   isLoading.value = true
 
   dailyLog.patientMovements = dailyLog.patientMovements.filter(
@@ -1950,6 +1954,7 @@ async function saveMovement(item) {
 }
 
 async function saveJustMovements() {
+  if (isPageLocked.value) return
   isLoading.value = true
   try {
     const docId = selectedDate.value
