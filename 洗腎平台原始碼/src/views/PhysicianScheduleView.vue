@@ -8,7 +8,7 @@
 
     <header class="page-header">
       <div class="header-left">
-        <h1 class="page-main-title">醫師班表</h1>
+        <h1 class="page-title">醫師班表</h1>
         <div class="month-navigator">
           <button @click="goToPreviousMonth" title="上一個月">❮</button>
           <span class="month-display">{{ selectedYear }} 年 {{ selectedMonth }} 月</span>

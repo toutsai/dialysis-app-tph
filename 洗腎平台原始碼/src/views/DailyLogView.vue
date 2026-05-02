@@ -8,7 +8,7 @@
 
     <header class="log-page-header">
       <div class="header-left">
-        <h1>工作日誌</h1>
+        <h1 class="page-title">工作日誌</h1>
 
         <div class="date-navigator">
           <button @click="changeDate(-1)">❮ 上一日</button>

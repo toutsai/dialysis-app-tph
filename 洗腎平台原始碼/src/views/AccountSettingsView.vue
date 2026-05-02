@@ -79,7 +79,7 @@ function handleCancel() {
   <div class="page-wrapper">
     <div class="settings-card">
       <header class="card-header">
-        <h1>帳號設定</h1>
+        <h1 class="page-title">帳號設定</h1>
         <p v-if="currentUser" class="subtitle">
           為帳號 <span class="username">{{ currentUser.username }}</span> 更改密碼
         </p>

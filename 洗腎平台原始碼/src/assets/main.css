@@ -51,13 +51,23 @@ body {
   box-sizing: border-box;
 }
 
-/* 定義全域通用的頁面標題樣式 */
-.page-title {
-  font-size: 32px; /* 或者你喜歡的任何統一大小，例如 2rem 或 32px */
-  font-weight: bold; /* 確保所有標題都是粗體 */
-  color: #333;
-  margin-bottom: 20px; /* 在標題和下方內容之間增加一些間距 */
-  margin-top: 0;
+/* 全域統一頁面標題樣式
+   只命中 h1.page-title / h2.page-title，避開 UsageGuideView 把 .page-title 當卡片標題的特殊用法。
+   各 view 的 <h1> 都應掛 class="page-title" 才能套到。 */
+h1.page-title,
+h2.page-title {
+  font-size: 32px !important;
+  font-weight: 700 !important;
+  color: #343a40 !important;
+  line-height: 1.3 !important;
+}
+
+/* 行動版（窄螢幕）統一縮小 */
+@media (max-width: 480px) {
+  h1.page-title,
+  h2.page-title {
+    font-size: 24px !important;
+  }
 }
 .page-header {
   flex-shrink: 0; /* 確保頭部區域不會被壓縮 */
