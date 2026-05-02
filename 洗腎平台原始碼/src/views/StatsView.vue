@@ -9,10 +9,17 @@
           <h1 class="page-title">護理分組</h1>
           <div class="date-navigator">
             <button @click="changeDate(-1)">&lt; 上一天</button>
-            <div class="date-display-wrapper">
+            <div class="date-display-wrapper date-clickable" @click="openDatePicker" title="點擊選擇日期">
               <span class="current-date-text">{{ formatDate(currentDate) }}</span>
               <span class="weekday-display">{{ weekdayDisplay }}</span>
             </div>
+            <input
+              ref="datePickerInput"
+              type="date"
+              class="date-picker-hidden"
+              :value="formatDate(currentDate)"
+              @change="onDatePicked"
+            />
             <button @click="changeDate(1)">下一天 &gt;</button>
           </div>
 
@@ -1177,6 +1184,7 @@ import PreparationPopover from '@/components/PreparationPopover.vue'
 import TaskCreateDialog from '@/components/TaskCreateDialog.vue'
 import { usePatientStore } from '@/stores/patientStore'
 import { useTaskStore } from '@/stores/taskStore'
+import { useViewingDateStore } from '@/stores/viewingDateStore'
 import { useMedicationStore } from '@/stores/medicationStore'
 import { useArchiveStore } from '@/stores/archiveStore'
 import { storeToRefs } from 'pinia'
@@ -1272,7 +1280,9 @@ async function getEffectiveOrdersForDate(patientId, targetDate) {
 
 // --- Vue Refs and Reactives (大部分保持不變) ---
 const isFireDutyDropdownVisible = ref(false)
-const currentDate = ref(new Date())
+const viewingDateStore = useViewingDateStore()
+const { date: currentDate } = storeToRefs(viewingDateStore)
+const datePickerInput = ref(null)
 const statusIndicator = ref('')
 const isLoading = ref(false)
 const currentRecord = reactive({ id: null, date: '', schedule: {} })
@@ -1979,6 +1989,33 @@ function goToToday() {
     performChange()
   }
 }
+function openDatePicker() {
+  const el = datePickerInput.value
+  if (!el) return
+  if (typeof el.showPicker === 'function') {
+    try {
+      el.showPicker()
+      return
+    } catch {
+      // 部分瀏覽器無使用者手勢時會 throw，退回 click()
+    }
+  }
+  el.click()
+}
+function onDatePicked(event) {
+  const value = event.target.value
+  if (!value) return
+  const performChange = () => {
+    currentDate.value = new Date(`${value}T00:00:00`)
+  }
+  if (hasUnsavedChanges.value && !isPageLocked.value) {
+    confirmDialogMessage.value = '您有未儲存的變更，確定要切換日期嗎？'
+    onConfirmAction.value = performChange
+    isConfirmDialogVisible.value = true
+  } else {
+    performChange()
+  }
+}
 function handleConfirm() {
   if (onConfirmAction.value) onConfirmAction.value()
   isConfirmDialogVisible.value = false
@@ -2630,6 +2667,7 @@ button:disabled {
   display: flex; /* 關鍵：讓內部元素水平排列 */
   align-items: center; /* 垂直居中對齊 */
   gap: 12px; /* 設定元素之間的間距 */
+  position: relative;
 }
 
 /* 新增一個包裝容器，讓日期和星期能更好地對齊 */
@@ -2637,6 +2675,24 @@ button:disabled {
   display: flex;
   align-items: baseline; /* 讓不同大小的文字基線對齊，更美觀 */
   gap: 8px;
+}
+.date-clickable {
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px dashed transparent;
+  transition: border-color 0.15s;
+}
+.date-clickable:hover {
+  border-bottom-color: #007bff;
+}
+.date-picker-hidden {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .current-date-text {

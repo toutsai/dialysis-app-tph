@@ -23,8 +23,23 @@
           </button>
           <div class="date-navigator">
             <button class="btn" @click="changeDate(-1)">&lt; 上一天</button>
-            <span class="current-date-text">{{ currentDateDisplay }}</span>
-            <span class="weekday-display">{{ weekdayDisplay }}</span>
+            <span
+              class="current-date-text date-clickable"
+              @click="openDatePicker"
+              title="點擊選擇日期"
+            >{{ currentDateDisplay }}</span>
+            <span
+              class="weekday-display date-clickable"
+              @click="openDatePicker"
+              title="點擊選擇日期"
+            >{{ weekdayDisplay }}</span>
+            <input
+              ref="datePickerInput"
+              type="date"
+              class="date-picker-hidden"
+              :value="currentDateInputValue"
+              @change="onDatePicked"
+            />
             <button class="btn" @click="changeDate(1)">下一天 &gt;</button>
             <button class="btn" @click="goToToday">回到今日</button>
           </div>
@@ -877,6 +892,7 @@
 <script setup>
 import { ref, onMounted, computed, reactive, watch, nextTick, provide, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useViewingDateStore } from '@/stores/viewingDateStore'
 import {
   fetchAllSchedules as optimizedFetchAllSchedules,
   saveSchedule as optimizedSaveSchedule,
@@ -1008,7 +1024,9 @@ const freqToDays = {
 const baseTeams = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
 
 // Reactive State
-const currentDate = ref(new Date())
+const viewingDateStore = useViewingDateStore()
+const { date: currentDate } = storeToRefs(viewingDateStore)
+const datePickerInput = ref(null)
 const recentConditionRecords = ref([])
 const hasUnsavedChanges = ref(false)
 const statusIndicator = ref('')
@@ -1687,6 +1705,35 @@ function changeDate(days) {
     const newDate = new Date(currentDate.value)
     newDate.setDate(newDate.getDate() + days)
     currentDate.value = newDate
+  }
+  if ((hasUnsavedChanges.value || hasUnsavedTeamChanges.value) && !isPageLocked.value) {
+    showConfirm('注意', '您有未儲存的變更，確定要切換日期嗎？', performChange)
+  } else {
+    performChange()
+  }
+}
+
+const currentDateInputValue = computed(() => formatDateToYYYYMMDD(currentDate.value))
+
+function openDatePicker() {
+  const el = datePickerInput.value
+  if (!el) return
+  if (typeof el.showPicker === 'function') {
+    try {
+      el.showPicker()
+      return
+    } catch {
+      // 某些瀏覽器在沒有使用者手勢時會拋錯，退回 click()
+    }
+  }
+  el.click()
+}
+
+function onDatePicked(event) {
+  const value = event.target.value
+  if (!value) return
+  const performChange = () => {
+    currentDate.value = new Date(`${value}T00:00:00`)
   }
   if ((hasUnsavedChanges.value || hasUnsavedTeamChanges.value) && !isPageLocked.value) {
     showConfirm('注意', '您有未儲存的變更，確定要切換日期嗎？', performChange)
@@ -2484,6 +2531,7 @@ watch(
   display: flex;
   align-items: center;
   gap: 10px;
+  position: relative;
 }
 .current-date-text,
 .weekday-display {
@@ -2492,6 +2540,24 @@ watch(
 }
 .weekday-display {
   color: var(--primary-color, #007bff);
+}
+.date-clickable {
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px dashed transparent;
+  transition: border-color 0.15s;
+}
+.date-clickable:hover {
+  border-bottom-color: var(--primary-color, #007bff);
+}
+.date-picker-hidden {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 .status-indicator {
   font-weight: bold;
