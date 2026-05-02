@@ -338,6 +338,50 @@ JOIN latest_per_patient lp
 
 **例外**：OrdersView 個人年度檢視 (`searchIndividualOrders`) 仍用 `uploadMonth` 嚴格分月，因為它的語意是「追蹤每月實際上傳了什麼」，無上傳的月份就該空白。
 
+### 排程例外重建必須驗證來源（避免「鬼魂病人」與「同人雙位置」）
+
+`src/services/scheduleSync.js applySingleException()` 被排程重建路徑反覆呼叫。早期版本盲信例外當下記下的快照 (`from.bedNum/shiftCode`、`patient1.fromBedNum/fromShiftCode`)，導致兩種事故：
+
+1. **SWAP 偽造病人**：來源位置已空，仍從例外資料偽造一個 slot 來交換 → 不應該出現在當天的病人被塞回排程
+2. **MOVE 來源失效仍套用**：總表後來把該病人的床位改了，原 from 已不是他，但 target 端仍照樣放他 → 同一天兩個位置
+
+**正確做法**：每次套用前驗證當前 schedule 的對應位置真的是預期病人；不是就回傳 `{ reason }` 並由外層標 `conflict_requires_resolution`，附具體訊息（如「原床位 5 床 早班 已不再是 王小明（目前為李大華），無法執行此調班作業故取消」）。**永遠不要從例外資料偽造 slot**。
+
+### 刪除病人時要連帶清理排程相依
+
+軟刪除病人 (`is_deleted=1`) 不會自動清掉這些東西：
+- `base_schedules.MASTER_SCHEDULE` 中的規則 → 由前端 `removeRuleFromMasterSchedule()` 觸發 `syncMasterScheduleToFuture` 清掉未來 60 天
+- `schedule_exceptions` 中的 pending/applied 例外 → 由後端 `cancelPendingExceptionsForPatient()` 同時取消（patient_id 欄位 + SWAP 的 patient1/patient2 JSON 兩條路徑）
+
+兩條刪除路徑（`DELETE /api/patients/:id` 與 `PUT` 帶 `isDeleted: true`）都要呼叫這個 helper。否則被刪除的病人會透過調班例外重新出現在未來排程上。
+
+### 病人 `dialysis_orders.freq` 不可被透析醫囑流程覆蓋
+
+頻率只能在病人清單（`PatientFormModal`）或床位總表（`BaseScheduleView`）修改。原本的透析醫囑 dialog 有「頻次」free text input，加上 `createDialysisOrderAndUpdatePatient` 用 `freq: orderData.freq || ''` 預設值，會把空字串送進後端 `toDbFormat` 的 spread merge，把既有 freq 蓋成 `''` 或被使用者亂打成 `"3"` 等非法值。
+
+修正後：
+- `DialysisOrderModal.vue` 不再有 freq 輸入欄
+- `dataToSave` 不包含 freq
+- `optimizedApiService.js createDialysisOrderAndUpdatePatient` 的 `historyRecord.orders` 不寫 freq
+
+未來新增任何「順便存醫囑」流程都要遵守這個規則。
+
+## 前端跨頁狀態 (Pinia)
+
+- `viewingDateStore` (`src/stores/viewingDateStore.ts`)：每日排程 (ScheduleView) 與護理分組 (StatsView) 共用同一個檢視日期。從一個跳到另一個會保留同一天，方便組長盯著未來某天的同一份資料。
+- `patientStore`：全域病人快取（已存在）
+- `medicationStore`：每日針劑快取（已存在）
+- `taskStore`：交辦/留言/協作（已存在）
+- `archiveStore`：歷史排程懶載入（已存在）
+
+## 開發環境（本機跑）
+
+- 後端：`npm run dev` (port 3000)
+- 前端：在 `洗腎平台原始碼/` 跑 `npm run dev`（純 vite，proxy → 127.0.0.1:3000）
+  - **不要**用 `npm run standalone`，會同時起本目錄內 `server/`（已知壞掉，CLAUDE.md 開頭也提過）
+- vite proxy target 用 `127.0.0.1` 而非 `localhost`，否則 Node 20+ 解析 IPv6 撞 IPv4-only 後端
+- CORS 在 `src/index.js` 的 `DEFAULT_DEV_ORIGINS` 把 5173/5174/5175 加入白名單；生產環境由 PM2 `ALLOWED_ORIGINS` env 接管
+
 ## 注意事項
 
 - 前端原始碼在 `洗腎平台原始碼/` 目錄（Vue），`dist/` 是預建置產出
