@@ -2759,19 +2759,19 @@ h1 {
   width: 90px;
 }
 .dynamic-table .col-name {
-  width: 100px;
+  width: 130px;
 }
 .dynamic-table .col-mrn {
-  width: 100px;
+  width: 130px;
 }
 .dynamic-table .col-bed {
-  width: 90px;
+  width: 130px;
 }
 .dynamic-table .col-date {
-  width: 160px;
+  width: 200px;
 }
 .dynamic-table .col-physician {
-  width: 90px;
+  width: 120px;
 }
 .dynamic-table .col-actions {
   width: 150px; /* ✅ 增加寬度以容納兩個按鈕 */
@@ -2782,7 +2782,8 @@ h1 {
 .dynamic-table .col-location {
   width: 120px;
 }
-/* `col-reason-wide` 和 `col-remarks-wide` 不設寬度，讓它們自動分配 */
+/* 住院原因 + 備註：不設寬度。
+   .dynamic-table 用 table-layout: fixed，未指定寬度的欄位會平均分剩餘空間 */
 
 .delete-btn,
 .save-btn,
