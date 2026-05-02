@@ -40,9 +40,15 @@ const PORT = process.env.PORT || 3000
 // ========================================
 
 // CORS 白名單設定
+const DEFAULT_DEV_ORIGINS = [
+  `http://localhost:${PORT}`,
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+]
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
-  : [`http://localhost:${PORT}`]
+  : DEFAULT_DEV_ORIGINS
 
 app.use(cors({
   origin: (origin, callback) => {

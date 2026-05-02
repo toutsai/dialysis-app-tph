@@ -24,7 +24,8 @@ export default defineConfig(({ mode }) => {
     server: (isStandalone || isEmulator) ? {
       proxy: {
         '/api': {
-          target: 'http://localhost:3000',
+          // 用 127.0.0.1 強制 IPv4，避免 Node 20+ 解析 localhost 為 ::1 卻撞到 IPv4-only 後端
+          target: 'http://127.0.0.1:3000',
           changeOrigin: true,
         },
       },
