@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid'
 import XLSX from 'xlsx'
 import { getDatabase } from '../db/init.js'
 import { authenticate, isEditor, isAdmin, logAudit } from '../middleware/auth.js'
+import { getTaipeiTodayString } from '../utils/dateUtils.js'
 import {
   syncEventsToKiditLogbook,
   getKiditLogbook,
@@ -1012,6 +1013,14 @@ router.put('/daily-logs/:date', ...isEditor, async (req, res) => {
     const { date } = req.params
     const { patientMovements, announcements, notes, vascularAccessLog, stats, leader, otherNotes } =
       req.body
+
+    // 過去日期一律不可修改：歷史紀錄保護（與排程歸檔機制語意一致）
+    if (date < getTaipeiTodayString()) {
+      return res.status(403).json({
+        error: true,
+        message: '工作日誌已歸檔，無法修改歷史紀錄',
+      })
+    }
 
     const db = getDatabase()
 
