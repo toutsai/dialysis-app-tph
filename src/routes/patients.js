@@ -122,6 +122,46 @@ function createPatientSnapshot(patient) {
 }
 
 /**
+ * 取消病人所有未結案的調班例外（pending/applied/conflict_requires_resolution）。
+ * 防止 scheduleSync 再次套用已刪除病人的調班，把人塞回未來排程。
+ */
+function cancelPendingExceptionsForPatient(db, patientId, reason = '病人已刪除') {
+  const ACTIVE_STATUSES = "'pending', 'applied', 'conflict_requires_resolution'"
+
+  // MOVE / ADD_SESSION / SUSPEND：用 patient_id 欄位
+  const direct = db.prepare(`
+    UPDATE schedule_exceptions
+    SET status = 'cancelled',
+        cancel_reason = COALESCE(cancel_reason, ?),
+        cancelled_at = datetime('now', 'localtime'),
+        updated_at = datetime('now', 'localtime')
+    WHERE patient_id = ?
+      AND status IN (${ACTIVE_STATUSES})
+  `).run(reason, patientId)
+
+  // SWAP：patientId 存在 patient1/patient2 JSON 中
+  const swap = db.prepare(`
+    UPDATE schedule_exceptions
+    SET status = 'cancelled',
+        cancel_reason = COALESCE(cancel_reason, ?),
+        cancelled_at = datetime('now', 'localtime'),
+        updated_at = datetime('now', 'localtime')
+    WHERE type = 'SWAP'
+      AND status IN (${ACTIVE_STATUSES})
+      AND (
+        json_extract(patient1, '$.patientId') = ?
+        OR json_extract(patient2, '$.patientId') = ?
+      )
+  `).run('對手病人已刪除', patientId, patientId)
+
+  const total = direct.changes + swap.changes
+  if (total > 0) {
+    console.log(`[Patient] 已取消 ${total} 筆與病人 ${patientId} 相關的調班例外`)
+  }
+  return total
+}
+
+/**
  * 將資料庫記錄轉換為 API 回應格式
  */
 function formatPatient(row) {
@@ -603,6 +643,9 @@ router.put('/:id', ...isContributor, async (req, res) => {
         reason: data.deleteReason || '',
         remarks: `從「${STATUS_MAP[existing.status] || existing.status}」刪除`,
       })
+
+      // 取消所有未結案的調班例外，避免被 scheduleSync 套用回未來排程
+      cancelPendingExceptionsForPatient(db, id)
     } else if (wasDeleted && !isNowDeleted) {
       // 復原操作：從已刪除 → 正常狀態
       const restoreStatus = data.status || updated.status || 'opd'
@@ -741,7 +784,8 @@ router.delete('/:id', ...isEditor, async (req, res) => {
       remarks: `從「${STATUS_MAP[existing.status] || existing.status}」刪除`,
     })
 
-
+    // 🔥 取消所有未結案的調班例外，避免被 scheduleSync 套用回未來排程
+    cancelPendingExceptionsForPatient(db, id)
 
     await logAudit('PATIENT_DELETE', req.user.id, req.user.name, 'patients', id, {
       name: existing.name,
