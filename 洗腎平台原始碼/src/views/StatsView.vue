@@ -1105,6 +1105,7 @@
       :is-loading="isInjectionLoading"
       :injections="dailyInjections"
       :target-date="formatDate(currentDate)"
+      :patient-info-map="injectionPatientInfoMap"
       @close="isInjectionDialogVisible = false"
       :show-filter="false"
     />
@@ -1298,6 +1299,7 @@ const dailyPhysicians = ref({ early: null, noon: null, late: null })
 const dailyConsultPhysicians = ref({ morning: null, afternoon: null, night: null })
 const isInjectionDialogVisible = ref(false)
 const dailyInjections = ref([])
+const injectionPatientInfoMap = ref({}) // { patientId: { bedNum, shift } }
 const isInjectionLoading = ref(false)
 const noonTakeoffVisibility = ref({ early: false, late: false })
 const isOrderModalVisible = ref(false)
@@ -2000,17 +2002,30 @@ async function handleTaskCreated() {
 
 async function showInjectionList(teamData, shiftType = null) {
   const patientIdsToFetch = new Set()
+  const infoMap = {}
+  const collect = (patients) => {
+    patients.forEach((p) => {
+      patientIdsToFetch.add(p.id)
+      // p.shiftId 形如 'bed-3-early' 或 'peripheral-2-noon'，最後一段是班別
+      const shift = p.shiftId ? p.shiftId.split('-').pop() : ''
+      if (!infoMap[p.id]) {
+        infoMap[p.id] = { bedNum: p.dialysisBed || '', shift }
+      }
+    })
+  }
+
   if (shiftType && teamData[shiftType] && Array.isArray(teamData[shiftType].patients)) {
-    teamData[shiftType].patients.forEach((p) => patientIdsToFetch.add(p.id))
+    collect(teamData[shiftType].patients)
   } else {
     for (const key in teamData) {
       if (teamData[key] && Array.isArray(teamData[key].patients)) {
-        teamData[key].patients.forEach((p) => patientIdsToFetch.add(p.id))
+        collect(teamData[key].patients)
       }
     }
   }
 
   const patientIdArray = Array.from(patientIdsToFetch)
+  injectionPatientInfoMap.value = infoMap
 
   // --- 📍 日誌點 A (StatsView): 檢查要查詢的病人 ---
   console.log(

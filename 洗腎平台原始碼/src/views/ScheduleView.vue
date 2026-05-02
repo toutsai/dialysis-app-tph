@@ -831,6 +831,7 @@
       :is-loading="isInjectionLoading"
       :injections="filteredDailyInjections"
       :target-date="injectionDialogDate"
+      :patient-info-map="injectionPatientInfoMap"
       v-model:filter-active="filterSpecificInjections"
       :show-filter="true"
       @close="isInjectionDialogVisible = false"
@@ -1044,6 +1045,7 @@ const isInjectionDialogVisible = ref(false)
 const isInjectionLoading = ref(false)
 const allDailyInjections = ref([])
 const injectionDialogDate = ref('')
+const injectionPatientInfoMap = ref({}) // { patientId: { bedNum, shift } } 給針劑清單顯示班別/床號
 const filterSpecificInjections = ref(false)
 const isDraftDialogVisible = ref(false)
 const isDraftLoading = ref(false)
@@ -1320,9 +1322,19 @@ async function handleSaveCRRTOrder(orderData) {
 async function showShiftInjections(shiftCode) {
   if (!shiftCode) return
 
-  const patientIds = Object.entries(currentRecord.schedule)
-    .filter(([shiftId, slot]) => slot?.patientId && shiftId.endsWith(`-${shiftCode}`))
-    .map(([, slot]) => slot.patientId)
+  const slots = Object.entries(currentRecord.schedule).filter(
+    ([shiftId, slot]) => slot?.patientId && shiftId.endsWith(`-${shiftCode}`),
+  )
+  const patientIds = slots.map(([, slot]) => slot.patientId)
+
+  // 建立 patientId -> { bedNum, shift } 對照，給 DailyInjectionListDialog 顯示
+  const infoMap = {}
+  slots.forEach(([shiftId, slot]) => {
+    const parts = shiftId.split('-')
+    const bedNum = parts[0] === 'peripheral' ? `外${parts[1]}` : parts[1]
+    infoMap[slot.patientId] = { bedNum, shift: shiftCode }
+  })
+  injectionPatientInfoMap.value = infoMap
 
   // --- 📍 日誌點 C (ScheduleView): 檢查要查詢的病人 ---
   console.log(
