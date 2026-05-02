@@ -1126,6 +1126,7 @@ onUnmounted(() => {
   flex-direction: column;
   background-color: #f8f9fa;
   padding: 0.5rem;
+  height: calc(100vh - 60px); /* 與預約變更頁一致：扣掉 MainLayout 頂部導航列 */
 }
 .page-header-section {
   border-bottom: 2px solid #dee2e6;
@@ -1271,6 +1272,13 @@ button:disabled {
 }
 :deep(.fc) {
   font-family: inherit;
+  height: 100%;
+}
+:deep(.fc-view-harness) {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 :deep(.fc-daygrid-event) {
   cursor: pointer;
