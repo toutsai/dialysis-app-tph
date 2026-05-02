@@ -306,6 +306,38 @@ dist/                          # Vue 3 + Vuetify 前端預建置產出
 - environment.ts 仍有 Firebase 憑證（未使用但應清除）
 - legacy firebase.service.ts 仍存在（只是空殼）
 
+## 已知陷阱（踩過的雷）
+
+### 藥囑 `upload_month` 必須用「最新有效月份」而非當月精確比對
+
+`injection_orders.upload_month` 代表「這份 Excel 是哪個月上傳的藥囑單」。醫院實際作業流程：
+- 通常在每月**第三週**才更新藥囑，新設定會延續使用到下個月第三週左右
+- 並非剛好月初切換 → 月初到第三週之間，當月可能根本沒有上傳檔
+
+**錯誤寫法**（會在跨月後讓藥物全部消失）：
+```sql
+WHERE upload_month = ?  -- 當月
+```
+
+**正確寫法**（每位病人取 `<= 目標月份` 的最新一份）：
+```sql
+WITH latest_per_patient AS (
+  SELECT patient_id, MAX(upload_month) AS effective_month
+  FROM injection_orders
+  WHERE patient_id IN (...) AND upload_month <= ?
+  GROUP BY patient_id
+)
+SELECT io.* FROM injection_orders io
+JOIN latest_per_patient lp
+  ON io.patient_id = lp.patient_id AND io.upload_month = lp.effective_month
+```
+
+**適用範圍**（凡是「顯示某日/某月病人應施打的藥物」都遵守此邏輯）：
+- `src/routes/medications.js` `daily-injections` — 護理分組、每日排程、我的病人列表
+- `src/routes/orders.js` `/injection-orders?effectiveMonth=YYYY-MM` — 藥囑管理群組查詢
+
+**例外**：OrdersView 個人年度檢視 (`searchIndividualOrders`) 仍用 `uploadMonth` 嚴格分月，因為它的語意是「追蹤每月實際上傳了什麼」，無上傳的月份就該空白。
+
 ## 注意事項
 
 - 前端原始碼在 `洗腎平台原始碼/` 目錄（Vue），`dist/` 是預建置產出
