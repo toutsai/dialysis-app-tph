@@ -286,7 +286,7 @@ import { useAuth } from '@/composables/useAuth'
 import { useRealtimeNotifications } from '@/composables/useRealtimeNotifications.js'
 import MemoDisplayDialog from '@/components/MemoDisplayDialog.vue'
 import ApiManager from '@/services/api_manager'
-import { getToday } from '@/utils/dateUtils'
+import { getToday, formatDateToYYYYMMDD } from '@/utils/dateUtils'
 
 import { storeToRefs } from 'pinia'
 import { usePatientStore } from '@/stores/patientStore'
@@ -459,18 +459,27 @@ function stopSharedDataListeners() {
   activeMemos.value = []
 }
 
+function getExceptionTargetDate(ex) {
+  // 例外影響的最晚日期；過了這天就視為過期、不需再提醒
+  if (ex.type === 'MOVE' || ex.type === 'ADD_SESSION') return ex.to?.goalDate
+  if (ex.type === 'SWAP') return ex.date
+  if (ex.type === 'SUSPEND') return ex.endDate || ex.startDate
+  return null
+}
+
 async function startConflictListener() {
   if (!(isAdmin.value || isEditor.value)) return
 
   try {
     const exceptions = await exceptionsApi.fetchAll()
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const todayStr = formatDateToYYYYMMDD() // 台北時區的今日 'YYYY-MM-DD'
 
     const conflicts = exceptions.filter((ex) => {
       if (ex.status !== 'conflict_requires_resolution') return false
-      const expireAt = ex.expireAt ? new Date(ex.expireAt) : null
-      return !expireAt || expireAt >= today
+      const targetDate = getExceptionTargetDate(ex)
+      // 沒有可判定的日期 → 保守保留；目標日期已過今天 → 過濾掉
+      if (!targetDate) return true
+      return targetDate >= todayStr
     })
     conflictCount.value = conflicts.length
   } catch (error) {
