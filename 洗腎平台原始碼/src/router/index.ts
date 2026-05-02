@@ -26,7 +26,8 @@ const routes = [
     component: MainLayout,
     meta: { requiresAuth: true },
     children: [
-      { path: '', name: 'Home', redirect: '/collaboration' },
+      // 預設先導向「我的病人」；若該使用者角色無權看 (見 beforeEach 第 4 條)，會自動退到「每日排程」
+      { path: '', name: 'Home', redirect: '/my-patients' },
       {
         path: 'schedule',
         name: 'Schedule',
@@ -200,13 +201,13 @@ router.beforeEach(async (to, from, next) => {
   if (requiresAuth && !isLoggedIn.value) {
     next({ name: 'Login', query: { redirect: to.fullPath } })
 
-    // 2. 已登入卻進入登入頁 → 依職稱導向
+    // 2. 已登入卻進入登入頁 → 預設導去「我的病人」，無權限者退到「每日排程」
   } else if (to.name === 'Login' && isLoggedIn.value) {
-    const userTitle = currentUser.value?.title
-    if (userTitle === '護理師' || userTitle === '護理師組長') {
+    const userRole = currentUser.value?.role ?? ''
+    if (STAFF_ROLES.includes(userRole)) {
       next({ name: 'MyPatients' })
     } else {
-      next({ name: 'Collaboration' })
+      next({ name: 'Schedule' })
     }
 
     // 3. 需要管理員權限但不是管理員 → 預設頁
