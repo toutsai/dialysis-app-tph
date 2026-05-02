@@ -325,8 +325,10 @@ async function searchGroupOrders() {
   let allOrders = []
 
   // 從 injection_orders 表查詢
-  const uploadMonth = groupSearchParams.month // 格式: YYYY-MM
-  allOrders = await localOrdersApi.fetchInjectionOrders({ uploadMonth })
+  // 使用 effectiveMonth：每位病人取 <= 該月份的最新上傳檔
+  // (跨月時若當月無新藥囑，自動沿用最近一次的設定)
+  const effectiveMonth = groupSearchParams.month // 格式: YYYY-MM
+  allOrders = await localOrdersApi.fetchInjectionOrders({ effectiveMonth })
   // 過濾出符合病人清單的訂單
   allOrders = allOrders.filter((order) => patientIds.includes(order.patientId))
 
