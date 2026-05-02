@@ -4,7 +4,7 @@
   <div class="page-container">
     <header class="page-header">
       <div class="header-main-content">
-        <h1>庫存管理</h1>
+        <h1 class="page-title">庫存管理</h1>
         <p class="page-description">管理耗材進貨、消耗紀錄、每月盤點與每週訂單。</p>
       </div>
     </header>

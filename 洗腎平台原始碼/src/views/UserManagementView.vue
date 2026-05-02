@@ -305,7 +305,7 @@ onMounted(() => {
   <div class="user-management-container">
     <header class="page-header">
       <div class="header-top">
-        <h1>使用者帳號管理</h1>
+        <h1 class="page-title">使用者帳號管理</h1>
         <div v-if="!isLoading && userStats.total > 0" class="user-stats">
           <span class="stats-total">總計: {{ userStats.total }}</span>
           <span v-if="userStats.filtered !== userStats.total" class="stats-filtered">

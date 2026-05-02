@@ -4,7 +4,7 @@
     <header class="page-header">
       <button v-if="showBackButton" @click="router.back()" class="back-button">返回查房名單</button>
       <div class="header-main-content">
-        <h1>檢驗報告管理</h1>
+        <h1 class="page-title">檢驗報告管理</h1>
         <p class="page-description">
           請從HIS報表產生器>護理>個管-CKD>0240洗腎科檢驗結果病患明細-月報下載原始資料。。
         </p>

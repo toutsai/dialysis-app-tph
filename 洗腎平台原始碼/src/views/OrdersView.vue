@@ -2,7 +2,7 @@
 <template>
   <div class="page-container">
     <header class="page-header">
-      <h1>藥囑管理</h1>
+      <h1 class="page-title">藥囑管理</h1>
       <p>上傳並查詢病患的口服藥與針劑藥囑紀錄。</p>
     </header>
 

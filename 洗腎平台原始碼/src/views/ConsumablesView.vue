@@ -3,7 +3,7 @@
   <div class="page-container">
     <header class="page-header">
       <div class="header-main-content">
-        <h1>每月耗材總表</h1>
+        <h1 class="page-title">每月耗材總表</h1>
         <p class="page-description">依據排班群組查詢病患每月使用的耗材，並支援資料上傳。</p>
       </div>
     </header>

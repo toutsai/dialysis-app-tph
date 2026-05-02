@@ -2,7 +2,7 @@
 <template>
   <div class="page-container">
     <header class="page-header">
-      <h1>待開立醫囑</h1>
+      <h1 class="page-title">待開立醫囑</h1>
       <p>此處列出所有已建立但尚未在 HIS 系統中開立的藥囑草稿。</p>
     </header>
 
