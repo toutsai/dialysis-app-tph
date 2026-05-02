@@ -408,8 +408,12 @@ const calendarOptions = computed(() => ({
       `詳細: ${exData.formattedDetails}\n` +
       `申請時間: ${formatTimestamp(exData.createdAt)}`
 
-    if (exData.status === 'error' && exData.errorMessage) {
-      actionDialogMessage.value += `\n\n錯誤訊息: ${exData.errorMessage}`
+    if (
+      exData.errorMessage &&
+      (exData.status === 'error' || exData.status === 'conflict_requires_resolution')
+    ) {
+      const label = exData.status === 'conflict_requires_resolution' ? '衝突原因' : '錯誤訊息'
+      actionDialogMessage.value += `\n\n${label}: ${exData.errorMessage}`
     }
 
     isActionDialogVisible.value = true

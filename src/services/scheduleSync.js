@@ -373,14 +373,25 @@ export async function initializeFutureSchedules(modifiedBy = {}) {
 // ===================================================================
 
 /**
+ * 將床位 / 班別組成方便閱讀的字串（給錯誤訊息用）
+ */
+function formatSlotLabel(bedNum, shiftCode) {
+  if (bedNum === undefined || bedNum === null) return '未知床位'
+  const bedStr = String(bedNum)
+  const bedLabel = bedStr.startsWith('peripheral-') ? `外圍 ${bedStr.split('-')[1]}` : `${bedStr} 床`
+  const shiftLabelMap = { early: '早班', noon: '午班', late: '晚班' }
+  const shiftLabel = shiftLabelMap[shiftCode] || shiftCode || ''
+  return shiftLabel ? `${bedLabel} ${shiftLabel}` : bedLabel
+}
+
+/**
  * 將單一調班申請應用到排程物件上
  * @param {object} schedule - 正在被修改的排程物件
  * @param {object} ex - 調班申請資料
  * @param {string} dateStr - 處理的目標日期
- * @returns {'ok'|'conflict'|'obsolete'} - 套用結果
- *   - 'ok'       : 成功套用或無需動作
- *   - 'conflict' : 目標撞別人（或 SWAP 對手不在預期位置），需人工處理
- *   - 'obsolete' : 來源已失效（總表變動使原本床位不再是該病人），例外應自動取消
+ * @returns {'ok'|{ reason: string }} - 套用結果
+ *   - 'ok'              : 成功套用或無需動作
+ *   - { reason: '...' } : 套用失敗，外層應將例外標 conflict_requires_resolution 並寫入 reason
  */
 function applySingleException(schedule, ex, dateStr) {
   try {
@@ -394,11 +405,15 @@ function applySingleException(schedule, ex, dateStr) {
           ? getScheduleKey(ex.from.bedNum, ex.from.shiftCode)
           : null
 
-        // 來源驗證：MOVE 來源日上若該床位已不再是這位病人，例外失效
+        // 來源驗證：MOVE 來源日上若該床位已不再是這位病人，視為衝突
         // （通常是總表事後把此病人床位改了，原 from 快照已過期）
         if (sourceMatchesDay && schedule[sourceKey]?.patientId !== ex.patientId) {
-          console.log(`[Engine] 例外 ${ex.id} 來源失效：${sourceKey} 已非 ${ex.patientName}`)
-          return 'obsolete'
+          const sourceLabel = formatSlotLabel(ex.from.bedNum, ex.from.shiftCode)
+          const occupantName = schedule[sourceKey]?.patientName
+          const occupantText = occupantName ? `目前為 ${occupantName}` : '目前為空'
+          const reason = `原床位 ${sourceLabel} 已不再是 ${ex.patientName}（${occupantText}），無法執行此調班作業故取消。`
+          console.log(`[Engine] 例外 ${ex.id} 來源失效：${reason}`)
+          return { reason }
         }
 
         if (targetDate !== dateStr) {
@@ -411,8 +426,11 @@ function applySingleException(schedule, ex, dateStr) {
 
         // 目標床位已被佔用（且不是自己）視為衝突
         if (schedule[targetKey] && schedule[targetKey].patientId !== ex.patientId) {
-          console.log(`[Engine] 衝突！調班 ${ex.id} 的目標床位 ${targetKey} 已被佔據`)
-          return 'conflict'
+          const targetLabel = formatSlotLabel(ex.to.bedNum, ex.to.shiftCode)
+          const occupantName = schedule[targetKey]?.patientName || '其他病人'
+          const reason = `目標床位 ${targetLabel} 已被 ${occupantName} 佔用，請重新安排床位。`
+          console.log(`[Engine] 衝突！調班 ${ex.id}：${reason}`)
+          return { reason }
         }
 
         // 正常執行操作
@@ -434,14 +452,26 @@ function applySingleException(schedule, ex, dateStr) {
         const key2 = getScheduleKey(ex.patient2.fromBedNum, ex.patient2.fromShiftCode)
 
         // 嚴格驗證：兩邊位置必須真的是預期的病人才能交換，不再偽造 slot
-        if (
-          schedule[key1]?.patientId !== ex.patient1.patientId ||
-          schedule[key2]?.patientId !== ex.patient2.patientId
-        ) {
-          console.log(
-            `[Engine] SWAP ${ex.id} 來源驗證失敗：${key1} / ${key2} 不是預期的病人`,
-          )
-          return 'conflict'
+        const slot1MismatchName = schedule[key1]?.patientName
+        const slot2MismatchName = schedule[key2]?.patientName
+        const slot1OK = schedule[key1]?.patientId === ex.patient1.patientId
+        const slot2OK = schedule[key2]?.patientId === ex.patient2.patientId
+
+        if (!slot1OK || !slot2OK) {
+          const reasons = []
+          if (!slot1OK) {
+            const label = formatSlotLabel(ex.patient1.fromBedNum, ex.patient1.fromShiftCode)
+            const actualText = slot1MismatchName ? `目前為 ${slot1MismatchName}` : '目前為空'
+            reasons.push(`${label} 應為 ${ex.patient1.patientName}（${actualText}）`)
+          }
+          if (!slot2OK) {
+            const label = formatSlotLabel(ex.patient2.fromBedNum, ex.patient2.fromShiftCode)
+            const actualText = slot2MismatchName ? `目前為 ${slot2MismatchName}` : '目前為空'
+            reasons.push(`${label} 應為 ${ex.patient2.patientName}（${actualText}）`)
+          }
+          const reason = `互調來源不符（${reasons.join('；')}），無法執行交換故取消。`
+          console.log(`[Engine] SWAP ${ex.id} 來源驗證失敗：${reason}`)
+          return { reason }
         }
 
         const slot1Data = { ...schedule[key1] }
@@ -491,18 +521,15 @@ function applySingleException(schedule, ex, dateStr) {
 function recalculateDailySchedule(dateStr, masterRules, todaysExceptions, patientsMap = null) {
   let finalSchedule = generateDailyScheduleFromRules(masterRules, dateStr, patientsMap)
   const conflictingExceptions = []
-  const obsoleteExceptions = []
 
   for (const ex of todaysExceptions) {
     const result = applySingleException(finalSchedule, ex, dateStr)
-    if (result === 'conflict') {
-      conflictingExceptions.push(ex)
-    } else if (result === 'obsolete') {
-      obsoleteExceptions.push(ex)
+    if (result !== 'ok') {
+      conflictingExceptions.push({ ex, reason: result.reason })
     }
   }
 
-  return { finalSchedule, conflictingExceptions, obsoleteExceptions }
+  return { finalSchedule, conflictingExceptions }
 }
 
 /**
@@ -554,43 +581,26 @@ function rebuildSingleDaySchedule(dateStr, masterRules, patientsMap) {
   todaysExceptions.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
 
   // 計算最終排程
-  const { finalSchedule, conflictingExceptions, obsoleteExceptions } = recalculateDailySchedule(
+  const { finalSchedule, conflictingExceptions } = recalculateDailySchedule(
     dateStr,
     masterRules,
     todaysExceptions,
     patientsMap
   )
 
-  // 標記衝突的調班
+  // 標記衝突的調班（含目標床位被佔、來源床位已不再是該病人 等等）
   if (conflictingExceptions.length > 0) {
     const conflictStmt = db.prepare(`
       UPDATE schedule_exceptions
       SET status = 'conflict_requires_resolution',
-          error_message = '系統重建排程時發現目標床位已被佔用，請重新安排。',
+          error_message = ?,
           updated_at = datetime('now', 'localtime')
       WHERE id = ?
     `)
 
-    conflictingExceptions.forEach((ex) => {
-      console.log(`[Engine] 將調班 ${ex.id} 標記為衝突`)
-      conflictStmt.run(ex.id)
-    })
-  }
-
-  // 自動取消因總表變動而失效的調班（來源床位已不再是該病人）
-  if (obsoleteExceptions.length > 0) {
-    const obsoleteStmt = db.prepare(`
-      UPDATE schedule_exceptions
-      SET status = 'cancelled',
-          cancel_reason = COALESCE(cancel_reason, ?),
-          cancelled_at = datetime('now', 'localtime'),
-          updated_at = datetime('now', 'localtime')
-      WHERE id = ?
-    `)
-
-    obsoleteExceptions.forEach((ex) => {
-      console.log(`[Engine] 自動取消失效調班 ${ex.id}：來源已不再是該病人`)
-      obsoleteStmt.run('總表變動，原來源床位已不再是該病人', ex.id)
+    conflictingExceptions.forEach(({ ex, reason }) => {
+      console.log(`[Engine] 將調班 ${ex.id} 標記為衝突：${reason}`)
+      conflictStmt.run(reason || '系統重建排程時發現衝突，請重新安排。', ex.id)
     })
   }
 
