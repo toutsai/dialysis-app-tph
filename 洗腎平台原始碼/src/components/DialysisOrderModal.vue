@@ -62,10 +62,7 @@
                     <option value="DFPP">DFPP</option>
                   </select>
                 </div>
-                <div class="form-group">
-                  <label for="freq">頻次</label>
-                  <input id="freq" v-model="localOrderData.freq" type="text" />
-                </div>
+                <!-- 頻次：透析醫囑不再修改頻率，請至病人清單或床位總表設定 -->
 
                 <!-- Group 3: 核心醫囑 -->
                 <div class="form-group ak-dynamic-group">
@@ -588,7 +585,7 @@ function handleSave() {
     heparinRinse: localOrderData.heparinRinse,
     physician: localOrderData.physician,
     mode: localOrderData.mode,
-    freq: localOrderData.freq,
+    // 不傳 freq：頻率僅能透過病人清單或床位總表修改
     dialysisHours: localOrderData.dialysisHours,
     dialysateFlow: localOrderData.dialysateFlow,
     replacementFlow: localOrderData.replacementFlow,

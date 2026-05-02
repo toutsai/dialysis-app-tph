@@ -284,7 +284,7 @@ export async function createDialysisOrderAndUpdatePatient(patientId, patientName
       venousNeedle: orderData.venousNeedle || '',
       physician: orderData.physician || '',
       mode: orderData.mode || '',
-      freq: orderData.freq || '',
+      // 不寫入 freq：頻率僅能透過病人清單或床位總表修改，避免醫囑流程意外覆蓋
       dialysisHours: parseNumeric(orderData.dialysisHours),
       dialysateFlow: parseNumeric(orderData.dialysateFlow),
       replacementFlow: parseNumeric(orderData.replacementFlow),
