@@ -377,7 +377,10 @@ export async function initializeFutureSchedules(modifiedBy = {}) {
  * @param {object} schedule - 正在被修改的排程物件
  * @param {object} ex - 調班申請資料
  * @param {string} dateStr - 處理的目標日期
- * @returns {boolean} - 如果發生衝突返回 true
+ * @returns {'ok'|'conflict'|'obsolete'} - 套用結果
+ *   - 'ok'       : 成功套用或無需動作
+ *   - 'conflict' : 目標撞別人（或 SWAP 對手不在預期位置），需人工處理
+ *   - 'obsolete' : 來源已失效（總表變動使原本床位不再是該病人），例外應自動取消
  */
 function applySingleException(schedule, ex, dateStr) {
   try {
@@ -385,15 +388,23 @@ function applySingleException(schedule, ex, dateStr) {
       case 'MOVE':
       case 'ADD_SESSION': {
         const targetDate = ex.to?.goalDate
+        const isMove = ex.type === 'MOVE'
+        const sourceMatchesDay = isMove && ex.from?.sourceDate === dateStr
+        const sourceKey = sourceMatchesDay
+          ? getScheduleKey(ex.from.bedNum, ex.from.shiftCode)
+          : null
+
+        // 來源驗證：MOVE 來源日上若該床位已不再是這位病人，例外失效
+        // （通常是總表事後把此病人床位改了，原 from 快照已過期）
+        if (sourceMatchesDay && schedule[sourceKey]?.patientId !== ex.patientId) {
+          console.log(`[Engine] 例外 ${ex.id} 來源失效：${sourceKey} 已非 ${ex.patientName}`)
+          return 'obsolete'
+        }
+
         if (targetDate !== dateStr) {
-          // MOVE 類型需要處理「來源」在今天的情況
-          if (ex.type === 'MOVE' && ex.from?.sourceDate === dateStr) {
-            const sourceKey = getScheduleKey(ex.from.bedNum, ex.from.shiftCode)
-            if (schedule[sourceKey]?.patientId === ex.patientId) {
-              delete schedule[sourceKey]
-            }
-          }
-          return false
+          // 處理只命中來源日的情況
+          if (sourceMatchesDay) delete schedule[sourceKey]
+          return 'ok'
         }
 
         const targetKey = getScheduleKey(ex.to.bedNum, ex.to.shiftCode)
@@ -401,50 +412,52 @@ function applySingleException(schedule, ex, dateStr) {
         // 目標床位已被佔用（且不是自己）視為衝突
         if (schedule[targetKey] && schedule[targetKey].patientId !== ex.patientId) {
           console.log(`[Engine] 衝突！調班 ${ex.id} 的目標床位 ${targetKey} 已被佔據`)
-          return true
+          return 'conflict'
         }
 
         // 正常執行操作
-        if (ex.type === 'MOVE' && ex.from?.sourceDate === dateStr) {
-          const sourceKey = getScheduleKey(ex.from.bedNum, ex.from.shiftCode)
-          if (schedule[sourceKey]?.patientId === ex.patientId) {
-            delete schedule[sourceKey]
-          }
-        }
+        if (sourceMatchesDay) delete schedule[sourceKey]
 
         schedule[targetKey] = {
           patientId: ex.patientId,
           patientName: ex.patientName,
           exceptionId: ex.id,
-          manualNote: ex.type === 'MOVE' ? '(換班)' : '(臨時加洗)',
+          manualNote: isMove ? '(換班)' : '(臨時加洗)',
         }
-        return false
+        return 'ok'
       }
 
       case 'SWAP': {
-        if (ex.date === dateStr) {
-          const key1 = getScheduleKey(ex.patient1.fromBedNum, ex.patient1.fromShiftCode)
-          const key2 = getScheduleKey(ex.patient2.fromBedNum, ex.patient2.fromShiftCode)
+        if (ex.date !== dateStr) return 'ok'
 
-          const slot1Data = schedule[key1]
-            ? { ...schedule[key1] }
-            : { patientId: ex.patient1.patientId, patientName: ex.patient1.patientName }
-          const slot2Data = schedule[key2]
-            ? { ...schedule[key2] }
-            : { patientId: ex.patient2.patientId, patientName: ex.patient2.patientName }
+        const key1 = getScheduleKey(ex.patient1.fromBedNum, ex.patient1.fromShiftCode)
+        const key2 = getScheduleKey(ex.patient2.fromBedNum, ex.patient2.fromShiftCode)
 
-          schedule[key1] = {
-            ...slot2Data,
-            exceptionId: ex.id,
-            manualNote: `(與${ex.patient1.patientName}互調)`,
-          }
-          schedule[key2] = {
-            ...slot1Data,
-            exceptionId: ex.id,
-            manualNote: `(與${ex.patient2.patientName}互調)`,
-          }
+        // 嚴格驗證：兩邊位置必須真的是預期的病人才能交換，不再偽造 slot
+        if (
+          schedule[key1]?.patientId !== ex.patient1.patientId ||
+          schedule[key2]?.patientId !== ex.patient2.patientId
+        ) {
+          console.log(
+            `[Engine] SWAP ${ex.id} 來源驗證失敗：${key1} / ${key2} 不是預期的病人`,
+          )
+          return 'conflict'
         }
-        return false
+
+        const slot1Data = { ...schedule[key1] }
+        const slot2Data = { ...schedule[key2] }
+
+        schedule[key1] = {
+          ...slot2Data,
+          exceptionId: ex.id,
+          manualNote: `(與${ex.patient1.patientName}互調)`,
+        }
+        schedule[key2] = {
+          ...slot1Data,
+          exceptionId: ex.id,
+          manualNote: `(與${ex.patient2.patientName}互調)`,
+        }
+        return 'ok'
       }
 
       case 'SUSPEND': {
@@ -458,13 +471,13 @@ function applySingleException(schedule, ex, dateStr) {
             }
           })
         }
-        return false
+        return 'ok'
       }
     }
   } catch (error) {
     console.error(`[Engine] 套用調班 ${ex.id} 時錯誤:`, error)
   }
-  return false
+  return 'ok'
 }
 
 /**
@@ -478,15 +491,18 @@ function applySingleException(schedule, ex, dateStr) {
 function recalculateDailySchedule(dateStr, masterRules, todaysExceptions, patientsMap = null) {
   let finalSchedule = generateDailyScheduleFromRules(masterRules, dateStr, patientsMap)
   const conflictingExceptions = []
+  const obsoleteExceptions = []
 
   for (const ex of todaysExceptions) {
-    const hasConflict = applySingleException(finalSchedule, ex, dateStr)
-    if (hasConflict) {
+    const result = applySingleException(finalSchedule, ex, dateStr)
+    if (result === 'conflict') {
       conflictingExceptions.push(ex)
+    } else if (result === 'obsolete') {
+      obsoleteExceptions.push(ex)
     }
   }
 
-  return { finalSchedule, conflictingExceptions }
+  return { finalSchedule, conflictingExceptions, obsoleteExceptions }
 }
 
 /**
@@ -538,7 +554,7 @@ function rebuildSingleDaySchedule(dateStr, masterRules, patientsMap) {
   todaysExceptions.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
 
   // 計算最終排程
-  const { finalSchedule, conflictingExceptions } = recalculateDailySchedule(
+  const { finalSchedule, conflictingExceptions, obsoleteExceptions } = recalculateDailySchedule(
     dateStr,
     masterRules,
     todaysExceptions,
@@ -547,7 +563,7 @@ function rebuildSingleDaySchedule(dateStr, masterRules, patientsMap) {
 
   // 標記衝突的調班
   if (conflictingExceptions.length > 0) {
-    const updateStmt = db.prepare(`
+    const conflictStmt = db.prepare(`
       UPDATE schedule_exceptions
       SET status = 'conflict_requires_resolution',
           error_message = '系統重建排程時發現目標床位已被佔用，請重新安排。',
@@ -557,7 +573,24 @@ function rebuildSingleDaySchedule(dateStr, masterRules, patientsMap) {
 
     conflictingExceptions.forEach((ex) => {
       console.log(`[Engine] 將調班 ${ex.id} 標記為衝突`)
-      updateStmt.run(ex.id)
+      conflictStmt.run(ex.id)
+    })
+  }
+
+  // 自動取消因總表變動而失效的調班（來源床位已不再是該病人）
+  if (obsoleteExceptions.length > 0) {
+    const obsoleteStmt = db.prepare(`
+      UPDATE schedule_exceptions
+      SET status = 'cancelled',
+          cancel_reason = COALESCE(cancel_reason, ?),
+          cancelled_at = datetime('now', 'localtime'),
+          updated_at = datetime('now', 'localtime')
+      WHERE id = ?
+    `)
+
+    obsoleteExceptions.forEach((ex) => {
+      console.log(`[Engine] 自動取消失效調班 ${ex.id}：來源已不再是該病人`)
+      obsoleteStmt.run('總表變動，原來源床位已不再是該病人', ex.id)
     })
   }
 
