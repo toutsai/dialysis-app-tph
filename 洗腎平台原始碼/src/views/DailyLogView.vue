@@ -1267,13 +1267,19 @@ async function loadDailyLog(dateStr) {
     let logResult = null
     let scheduleData = null
 
+    // 過去日期讀歸檔排程（含病人狀態快照），其他日期讀現行排程
+    const isPast = dateStr < formatDate(new Date())
+    const fetchSchedule = isPast
+      ? schedulesApi.fetchExpiredSchedule(dateStr)
+      : schedulesApi.fetchByDate(dateStr)
+
     const results = await Promise.all([
       nursingApi.fetchDailyLog(dateStr).catch(() => null),
       nursingApi
         .fetchLatestHandoverLog()
         .then((log) => log?.content || '')
         .catch(() => ''),
-      schedulesApi.fetchByDate(dateStr).catch(() => null),
+      fetchSchedule.catch(() => null),
     ])
 
     logResult = results[0]
@@ -1517,21 +1523,24 @@ function calculateStatsFromSchedule(scheduleRecord) {
   for (const shiftKey in scheduleRecord.schedule) {
     const slotData = scheduleRecord.schedule[shiftKey]
     if (!slotData?.patientId) continue
+    // 歸檔排程帶有 archivedPatientInfo 快照，優先使用，避免病人之後改身分污染歷史統計
+    const archivedStatus = slotData.archivedPatientInfo?.status
     const patient = patientMap.value.get(slotData.patientId)
-    if (!patient) continue
+    const status = archivedStatus || patient?.status
+    if (!status) continue
     const shiftCode = shiftKey.split('-').pop()
     const isPeripheral = shiftKey.startsWith('peripheral')
 
     if (['early', 'noon', 'late'].includes(shiftCode)) {
       if (isPeripheral) {
         newStats.peripheral_beds[shiftCode].total++
-        if (patient.status === 'ipd') newStats.peripheral_beds[shiftCode].ipd++
-        else if (patient.status === 'er') newStats.peripheral_beds[shiftCode].er++
+        if (status === 'ipd') newStats.peripheral_beds[shiftCode].ipd++
+        else if (status === 'er') newStats.peripheral_beds[shiftCode].er++
       } else {
         newStats.main_beds[shiftCode].total++
-        if (patient.status === 'opd') newStats.main_beds[shiftCode].opd++
-        else if (patient.status === 'ipd') newStats.main_beds[shiftCode].ipd++
-        else if (patient.status === 'er') newStats.main_beds[shiftCode].er++
+        if (status === 'opd') newStats.main_beds[shiftCode].opd++
+        else if (status === 'ipd') newStats.main_beds[shiftCode].ipd++
+        else if (status === 'er') newStats.main_beds[shiftCode].er++
       }
     }
   }
@@ -1622,21 +1631,24 @@ function getStatsFromSchedule(scheduleRecord) {
   for (const shiftKey in scheduleRecord.schedule) {
     const slotData = scheduleRecord.schedule[shiftKey]
     if (!slotData?.patientId) continue
+    // 歸檔排程帶有 archivedPatientInfo 快照，優先使用，避免病人之後改身分污染歷史統計
+    const archivedStatus = slotData.archivedPatientInfo?.status
     const patient = patientMap.value.get(slotData.patientId)
-    if (!patient) continue
+    const status = archivedStatus || patient?.status
+    if (!status) continue
     const shiftCode = shiftKey.split('-').pop()
     const isPeripheral = shiftKey.startsWith('peripheral')
 
     if (['early', 'noon', 'late'].includes(shiftCode)) {
       if (isPeripheral) {
         stats.peripheral_beds[shiftCode].total++
-        if (patient.status === 'ipd') stats.peripheral_beds[shiftCode].ipd++
-        else if (patient.status === 'er') stats.peripheral_beds[shiftCode].er++
+        if (status === 'ipd') stats.peripheral_beds[shiftCode].ipd++
+        else if (status === 'er') stats.peripheral_beds[shiftCode].er++
       } else {
         stats.main_beds[shiftCode].total++
-        if (patient.status === 'opd') stats.main_beds[shiftCode].opd++
-        else if (patient.status === 'ipd') stats.main_beds[shiftCode].ipd++
-        else if (patient.status === 'er') stats.main_beds[shiftCode].er++
+        if (status === 'opd') stats.main_beds[shiftCode].opd++
+        else if (status === 'ipd') stats.main_beds[shiftCode].ipd++
+        else if (status === 'er') stats.main_beds[shiftCode].er++
       }
     }
   }
