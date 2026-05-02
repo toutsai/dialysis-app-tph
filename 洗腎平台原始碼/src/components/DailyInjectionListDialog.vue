@@ -41,10 +41,10 @@
                 v-for="(injection, index) in injections"
                 :key="`${injection.patientId}-${injection.orderCode}-${index}`"
               >
-                <td>{{ formatShift(injection.shift) }}</td>
-                <td>{{ injection.bedNum }}</td>
+                <td>{{ formatShift(getShift(injection)) }}</td>
+                <td>{{ getBedNum(injection) }}</td>
                 <td>{{ injection.patientName }}</td>
-                <td>{{ injection.orderName }}</td>
+                <td>{{ getMedDisplayName(injection) }}</td>
                 <td>{{ injection.dose }} {{ getMedicationUnit(injection) }}</td>
                 <td>{{ injection.note }}</td>
               </tr>
@@ -75,6 +75,12 @@
 <script setup>
 import { computed } from 'vue'
 import { getMedicationUnit } from '@/utils/medicationUtils.js'
+import { ALL_MEDS_MASTER } from '@/constants/medicationConstants.js'
+
+// orderCode -> tradeName（藥物簡寫，例如 INES2 → NESP、ICAC → Cacare）
+const MED_CODE_TO_TRADE_NAME = new Map(
+  ALL_MEDS_MASTER.map((m) => [m.code, m.tradeName]),
+)
 
 // ✨ [核心修改 2] 在 props 中新增 showFilter
 const props = defineProps({
@@ -100,7 +106,26 @@ const props = defineProps({
     type: Boolean,
     default: false, // 預設為 false (不顯示)
   },
+  // 病人對照表（patientId -> { bedNum, shift }）。
+  // injection 自身若已帶 bedNum/shift 仍優先使用，沒帶才從這裡查。
+  patientInfoMap: {
+    type: Object,
+    default: () => ({}),
+  },
 })
+
+function getMedDisplayName(injection) {
+  return MED_CODE_TO_TRADE_NAME.get(injection.orderCode) || injection.orderName || ''
+}
+
+function getBedNum(injection) {
+  if (injection.bedNum != null) return injection.bedNum
+  return props.patientInfoMap?.[injection.patientId]?.bedNum ?? ''
+}
+
+function getShift(injection) {
+  return injection.shift || props.patientInfoMap?.[injection.patientId]?.shift || ''
+}
 
 const emit = defineEmits(['close', 'update:filterActive'])
 
