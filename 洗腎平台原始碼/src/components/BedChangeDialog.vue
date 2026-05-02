@@ -28,6 +28,21 @@ function isHepatitisBed(bedNum) {
 const availableBedsByShift = computed(() => {
   if (!props.isVisible || !props.currentSchedule) return {}
 
+  const excludedBedNumbers = new Set([
+    4,
+    10,
+    14,
+    20,
+    24,
+    30,
+    34,
+    50,
+    54,
+    60,
+    64,
+    ...Array.from({ length: 10 }, (_, i) => i + 40), // 移除 40-49 床位
+  ])
+
   const allPossibleBeds = [
     ...Array.from({ length: 65 }, (_, i) => i + 1).filter(
       (i) =>
