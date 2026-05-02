@@ -1277,7 +1277,6 @@ watch(
               <div class="flex-cell col-mode">模式</div>
               <div class="flex-cell col-status" @click="handleSort('patientStatus')">狀態</div>
               <div class="flex-cell col-hospital" @click="handleSort('hospitalInfo')">透析院所</div>
-              <div class="flex-cell col-vasc-access">血管通路</div>
               <div class="flex-cell col-remarks">備註</div>
               <div class="flex-cell col-updated" @click="handleSort('updatedAt')">異動日期</div>
               <div class="flex-cell col-actions">操作</div>
@@ -1344,7 +1343,6 @@ watch(
                     <span class="hospital-transfer-out">{{ p.hospitalInfo?.transferOut }}</span>
                   </div>
                 </div>
-                <div class="flex-cell col-vasc-access">{{ p.vascAccess }}</div>
                 <div class="flex-cell col-remarks">{{ p.remarks }}</div>
                 <div class="flex-cell col-updated">{{ formatDate(p.updatedAt) }}</div>
                 <div class="flex-cell col-actions">
@@ -1517,9 +1515,6 @@ watch(
                 </div>
                 <div class="info-item">
                   <span class="label">模式</span><span class="value">{{ p.mode }}</span>
-                </div>
-                <div v-if="activeTab === 'opd'" class="info-item">
-                  <span class="label">血管通路</span><span class="value">{{ p.vascAccess }}</span>
                 </div>
                 <div v-if="activeTab !== 'opd'" class="info-item">
                   <span class="label">首透</span
@@ -1955,9 +1950,6 @@ watch(
 }
 .col-hospital {
   flex: 0 0 160px;
-}
-.col-vasc-access {
-  flex: 0 0 110px;
 }
 .col-remarks {
   flex: 1 1 auto;

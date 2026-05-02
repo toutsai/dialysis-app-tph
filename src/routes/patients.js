@@ -135,6 +135,8 @@ function formatPatient(row) {
     status: row.status,
     isDeleted: row.is_deleted === 1,
     deleteReason: row.delete_reason,
+    // 舊資料的 deleted_at 可能為 NULL（早期版本未紀錄），fallback 至 updated_at
+    deletedAt: row.is_deleted === 1 ? (row.deleted_at || row.updated_at) : null,
     dialysisOrders: dialysisOrders,
     crrtOrders: crrtOrders,  // ✨ 新增：回傳 CRRT 醫囑
     // 將 freq 和 mode 也放在頂層，方便前端使用
@@ -711,6 +713,7 @@ router.delete('/:id', ...isEditor, async (req, res) => {
       UPDATE patients
       SET is_deleted = 1,
           delete_reason = ?,
+          deleted_at = datetime('now', 'localtime'),
           last_modified_by = ?,
           updated_at = datetime('now', 'localtime')
       WHERE id = ?
@@ -784,6 +787,7 @@ router.post('/:id/restore', ...isEditor, async (req, res) => {
       UPDATE patients
       SET is_deleted = 0,
           delete_reason = NULL,
+          deleted_at = NULL,
           status = ?,
           last_modified_by = ?,
           updated_at = datetime('now', 'localtime')
