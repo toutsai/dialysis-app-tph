@@ -550,9 +550,12 @@ async function handleUpload() {
       errors: result.errors || [],
     }
 
-    // 上傳成功後清除選擇的檔案
-    if (result.success && result.errorCount === 0) {
-      selectedFile.value = null
+    // 上傳成功後清除選擇的檔案與針劑快取
+    if (result.success) {
+      medicationStore.clearCache()
+      if (result.errorCount === 0) {
+        selectedFile.value = null
+      }
     }
   } catch (error) {
     console.error('上傳藥囑 Excel 失敗:', error)

@@ -1114,6 +1114,7 @@
       :target-date="formatDate(currentDate)"
       :patient-info-map="injectionPatientInfoMap"
       @close="isInjectionDialogVisible = false"
+      @refresh="refreshInjections"
       :show-filter="false"
     />
     <DialysisOrderModal
@@ -1311,6 +1312,8 @@ const isInjectionDialogVisible = ref(false)
 const dailyInjections = ref([])
 const injectionPatientInfoMap = ref({}) // { patientId: { bedNum, shift } }
 const isInjectionLoading = ref(false)
+const lastInjectionTeamData = ref(null)
+const lastInjectionShiftType = ref(null)
 const noonTakeoffVisibility = ref({ early: false, late: false })
 const isOrderModalVisible = ref(false)
 const editingPatientForOrder = ref(null)
@@ -2037,7 +2040,16 @@ async function handleTaskCreated() {
   await taskStore.refreshTasks()
 }
 
+async function refreshInjections() {
+  medicationStore.clearCache(formatDate(currentDate.value))
+  if (lastInjectionTeamData.value) {
+    await showInjectionList(lastInjectionTeamData.value, lastInjectionShiftType.value)
+  }
+}
+
 async function showInjectionList(teamData, shiftType = null) {
+  lastInjectionTeamData.value = teamData
+  lastInjectionShiftType.value = shiftType
   const patientIdsToFetch = new Set()
   const infoMap = {}
   const collect = (patients) => {

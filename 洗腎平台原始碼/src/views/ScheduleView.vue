@@ -850,6 +850,7 @@
       v-model:filter-active="filterSpecificInjections"
       :show-filter="true"
       @close="isInjectionDialogVisible = false"
+      @refresh="refreshInjections"
     />
     <DailyDraftListDialog
       :is-visible="isDraftDialogVisible"
@@ -1065,6 +1066,7 @@ const allDailyInjections = ref([])
 const injectionDialogDate = ref('')
 const injectionPatientInfoMap = ref({}) // { patientId: { bedNum, shift } } 給針劑清單顯示班別/床號
 const filterSpecificInjections = ref(false)
+const lastInjectionShiftCode = ref('')
 const isDraftDialogVisible = ref(false)
 const isDraftLoading = ref(false)
 const dailyDrafts = ref([])
@@ -1226,11 +1228,19 @@ const todayInpatients = computed(() => {
   return inpatients
 })
 const filteredDailyInjections = computed(() => {
-  if (!filterSpecificInjections.value) return allDailyInjections.value
-  const specificMedCodes = ['ICAC', 'IFER2', 'IPAR1']
-  return allDailyInjections.value.filter((injection) =>
-    specificMedCodes.includes(injection.orderCode),
-  )
+  let list = allDailyInjections.value
+  if (filterSpecificInjections.value) {
+    const specificMedCodes = ['ICAC', 'IFER2', 'IPAR1']
+    list = list.filter((inj) => specificMedCodes.includes(inj.orderCode))
+  }
+  const infoMap = injectionPatientInfoMap.value
+  return [...list].sort((a, b) => {
+    const bedA = a.bedNum ?? infoMap[a.patientId]?.bedNum ?? ''
+    const bedB = b.bedNum ?? infoMap[b.patientId]?.bedNum ?? ''
+    const numA = parseInt(String(bedA).replace(/\D/g, ''), 10) || 999
+    const numB = parseInt(String(bedB).replace(/\D/g, ''), 10) || 999
+    return numA - numB
+  })
 })
 const sortedScheduleSlots = computed(() => {
   if (!currentRecord.schedule) return []
@@ -1360,6 +1370,7 @@ async function showShiftInjections(shiftCode) {
     patientIds,
   )
 
+  lastInjectionShiftCode.value = shiftCode
   injectionDialogDate.value = formatDate(currentDate.value)
   isInjectionDialogVisible.value = true
   isInjectionLoading.value = true
@@ -1385,6 +1396,13 @@ async function showShiftInjections(shiftCode) {
     isInjectionDialogVisible.value = false
   } finally {
     isInjectionLoading.value = medicationStore.isLoading
+  }
+}
+
+async function refreshInjections() {
+  medicationStore.clearCache(injectionDialogDate.value)
+  if (lastInjectionShiftCode.value) {
+    await showShiftInjections(lastInjectionShiftCode.value)
   }
 }
 

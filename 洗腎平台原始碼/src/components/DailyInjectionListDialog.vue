@@ -8,6 +8,9 @@
           <span v-if="titleDate">- {{ titleDate }} ({{ injections.length }} 筆)</span>
         </h3>
         <div class="header-actions">
+          <button @click="emit('refresh')" class="btn-refresh" title="重新載入" :disabled="isLoading">
+            <i class="fas fa-sync-alt" :class="{ 'fa-spin': isLoading }"></i>
+          </button>
           <button @click="handlePrint" class="btn-primary-dialog">
             <i class="fas fa-print"></i> 匯出/列印
           </button>
@@ -127,7 +130,7 @@ function getShift(injection) {
   return injection.shift || props.patientInfoMap?.[injection.patientId]?.shift || ''
 }
 
-const emit = defineEmits(['close', 'update:filterActive'])
+const emit = defineEmits(['close', 'update:filterActive', 'refresh'])
 
 const closeDialog = () => {
   emit('close')
@@ -276,6 +279,23 @@ const handlePrint = () => {
 }
 .btn-primary-dialog:hover {
   background-color: #0056b3;
+}
+.btn-refresh {
+  background: none;
+  border: 1px solid #dee2e6;
+  border-radius: 5px;
+  padding: 0.45rem 0.65rem;
+  cursor: pointer;
+  color: #6c757d;
+  font-size: 1rem;
+}
+.btn-refresh:hover:not(:disabled) {
+  background-color: #e9ecef;
+  color: #495057;
+}
+.btn-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* 元件特定樣式 */
