@@ -611,13 +611,21 @@ async function generateAlertReport() {
     const endDateStr = endDate.toISOString().slice(0, 10)
     const scheduleDoc = await baseSchedulesApi.fetchById('MASTER_SCHEDULE')
     const scheduleRules = scheduleDoc?.schedule || {}
+    const allReportsForRange = await labReportsApi.fetchAll({
+      startDate: startDateStr,
+      endDate: endDateStr,
+    })
+    const reportsByPatientId = new Map()
+    allReportsForRange.forEach((report) => {
+      if (!report.patientId) return
+      if (!reportsByPatientId.has(report.patientId)) {
+        reportsByPatientId.set(report.patientId, [])
+      }
+      reportsByPatientId.get(report.patientId).push(report)
+    })
 
     for (const patient of allOpdPatients) {
-      const reports = await labReportsApi.fetchAll({
-        patientId: patient.id,
-        startDate: startDateStr,
-        endDate: endDateStr,
-      })
+      const reports = reportsByPatientId.get(patient.id) || []
       if (reports.length < 3) continue
       const cleanedReports = reports.map((r) => ({
         ...r,
