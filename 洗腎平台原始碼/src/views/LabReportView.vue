@@ -322,13 +322,17 @@
                 <span class="patient-info"
                   >{{ patient.name }} ({{ patient.medicalRecordNumber }})
                   <span style="color: #888; font-size: 0.85em; margin-left: 0.5em;">
-                    已有 {{ patient.existingCount }}/{{ patient.expectedCount }} 筆，缺: {{ patient.missingDates?.join(', ') || '全部' }}
+                    已有 {{ patient.existingCount }}/{{ patient.expectedCount }} 項，缺: {{ patient.missingItemLabels?.join('、') || '全部' }}
                   </span>
                 </span>
                 <div class="input-grid">
-                  <div v-for="item in manualEntryItems" :key="item.key" class="input-field">
-                    <label>{{ item.label }}</label>
-                    <input type="text" v-model="patient.labData[item.key]" />
+                  <div
+                    v-for="(key, idx) in patient.missingItemKeys"
+                    :key="key"
+                    class="input-field"
+                  >
+                    <label>{{ patient.missingItemLabels[idx] }}</label>
+                    <input type="text" v-model="patient.labData[key]" />
                   </div>
                 </div>
               </div>
@@ -371,6 +375,7 @@ import { usePatientStore } from '@/stores/patientStore'
 import { storeToRefs } from 'pinia'
 // ✨ 新增：從 constants 引入 LAB_ITEM_DISPLAY_NAMES
 import { LAB_ITEM_DISPLAY_NAMES } from '@/constants/labAlertConstants.js'
+import { getMonthlyLabPackage } from '@/constants/labMonthlyPackageConstants.js'
 // 引入 dateUtils 函數
 import { formatDateToYYYYMM, formatDateToYYYYMMDD } from '@/utils/dateUtils.js'
 import { escapeHtml } from '@/utils/sanitize.js'
@@ -902,9 +907,11 @@ async function findMissingPatients() {
       return
     }
     const [year, month] = manualEntryGroup.month.split('-').map(Number)
-    const startDateStr = `${year}-${String(month).padStart(2, '0')}-01`
-    const endDate = new Date(year, month, 1)
-    const endDateStr = endDate.toISOString().slice(0, 10)
+    const mm = String(month).padStart(2, '0')
+    const startDateStr = `${year}-${mm}-01`
+    // 該月最後一天（避免用 toISOString 受時區位移影響）
+    const lastDay = new Date(year, month, 0).getDate()
+    const endDateStr = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`
 
     // 獲取該月份的所有相關報告
     const reportsInMonth = await labReportsApi.fetchAll({
@@ -916,69 +923,45 @@ async function findMissingPatients() {
       allPatientIdsInGroup.includes(report.patientId),
     )
 
-    // 統計每位病人擁有的不重複報告日期數
-    const patientReportDates = new Map()
-    allPatientIdsInGroup.forEach((id) => patientReportDates.set(id, new Set()))
+    // 合併每位病人當月所有報告的檢驗值（同一病人可能因不同套餐日期分多筆）
+    const mergedByPatient = new Map()
+    allPatientIdsInGroup.forEach((id) => mergedByPatient.set(id, {}))
     relevantReports.forEach((report) => {
-      if (patientReportDates.has(report.patientId)) {
-        patientReportDates.get(report.patientId).add(report.reportDate)
+      if (mergedByPatient.has(report.patientId)) {
+        Object.assign(mergedByPatient.get(report.patientId), report.data || {})
       }
     })
 
-    // 計算群組中的最大報告日期數（即多數人應有的筆數）
-    const reportCounts = Array.from(patientReportDates.values()).map((dates) => dates.size)
-    const maxReportCount = Math.max(...reportCounts, 0)
+    // 依「該月應有項目套餐」比對，找出每位病人缺哪些項目
+    const expectedKeys = getMonthlyLabPackage(manualEntryGroup.month)
+    const itemLabelByKey = Object.fromEntries(
+      manualEntryItems.map((item) => [item.key, item.label]),
+    )
+    const hasValue = (v) => v !== null && v !== undefined && v !== ''
 
-    if (maxReportCount === 0) {
-      // 整個群組都沒有報告，全部列出
-    }
-
-    // 找出報告日期數少於最大值的病人（即有缺漏的）
-    const missingIds = allPatientIdsInGroup.filter((id) => {
-      const count = patientReportDates.get(id)?.size || 0
-      return count < maxReportCount
-    })
-    if (missingIds.length === 0) {
-      return
-    }
-
-    // 找出缺漏的具體日期，供補登參考
-    const allReportDates = new Set()
-    relevantReports.forEach((report) => {
-      if (allPatientIdsInGroup.includes(report.patientId)) {
-        allReportDates.add(report.reportDate)
-      }
-    })
-
-    // 從 patientStore 獲取缺漏病人的詳細資料
-    const missingPatientDetails = missingIds
+    missingPatients.value = allPatientIdsInGroup
       .map((id) => {
         const p = patientMap.value.get(id)
         if (!p) return null
-        const ownDates = patientReportDates.get(id) || new Set()
-        const missingDates = Array.from(allReportDates).filter((d) => !ownDates.has(d)).sort()
+        const merged = mergedByPatient.get(id) || {}
+        const missingItemKeys = expectedKeys.filter((key) => !hasValue(merged[key]))
+        if (missingItemKeys.length === 0) return null
+        const labData = {}
+        manualEntryItems.forEach((item) => {
+          labData[item.key] = ''
+        })
         return {
           id: p.id,
           name: p.name,
           medicalRecordNumber: p.medicalRecordNumber,
-          existingCount: ownDates.size,
-          expectedCount: maxReportCount,
-          missingDates,
+          existingCount: expectedKeys.length - missingItemKeys.length,
+          expectedCount: expectedKeys.length,
+          missingItemKeys,
+          missingItemLabels: missingItemKeys.map((key) => itemLabelByKey[key] || key),
+          labData: reactive(labData),
         }
       })
       .filter(Boolean)
-    missingPatients.value = missingPatientDetails.map((patientData) => {
-      const labData = {}
-      manualEntryItems.forEach((item) => {
-        labData[item.key] = ''
-      })
-      return {
-        id: patientData.id,
-        name: patientData.name,
-        medicalRecordNumber: patientData.medicalRecordNumber,
-        labData: reactive(labData),
-      }
-    })
   } catch (error) {
     console.error('查找缺漏病人失敗:', error)
     alert('查找缺漏病人時發生錯誤。')
